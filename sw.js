@@ -1,5 +1,5 @@
 // Офлайн-кеш. Після змін у коді збільшуйте номер версії.
-const CACHE = 'kazanok-v2';
+const CACHE = 'kazanok-v3';
 const ASSETS = [
   './',
   './index.html',
@@ -21,17 +21,27 @@ self.addEventListener('activate', e => {
   );
 });
 
-// Stale-while-revalidate: миттєво з кешу, у фоні оновлюємо.
+// HTML: спершу мережа (щоб оновлення приходили одразу), без мережі — кеш.
+// Інші файли: миттєво з кешу, у фоні оновлюємо.
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
+  if (req.mode === 'navigate' || req.destination === 'document') {
+    e.respondWith(
+      fetch(req).then(res => {
+        if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put('./index.html', copy)); }
+        return res;
+      }).catch(() => caches.match('./index.html'))
+    );
+    return;
+  }
   e.respondWith(
     caches.open(CACHE).then(async cache => {
       const cached = await cache.match(req, { ignoreSearch: true });
       const network = fetch(req).then(res => {
         if (res && res.ok) cache.put(req, res.clone());
         return res;
-      }).catch(() => cached || cache.match('./index.html'));
+      }).catch(() => cached);
       return cached || network;
     })
   );
