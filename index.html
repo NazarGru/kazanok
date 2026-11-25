@@ -136,6 +136,7 @@ textarea.inp{min-height:120px;resize:vertical;line-height:1.5}
 'use strict';
 /* ====================== Дані ====================== */
 const KEY = 'kazanok.v1';
+const PROXY = 'https://kazanok-proxy.nazarogarishev333.workers.dev';
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const DAYS = ['Понеділок','Вівторок','Середа','Четвер','Пʼятниця','Субота','Неділя'];
@@ -525,7 +526,6 @@ async function aiPasteUrl() {
   try { const t = await navigator.clipboard.readText(); const m = t.match(/https?:\/\/\S+/); document.getElementById('ai_url').value = m ? m[0] : t.trim(); }
   catch { toast('Утримуйте поле й оберіть «Вставити»'); }
 }
-const PROXY = 'https://kazanok-proxy.nazarogarishev333.workers.dev';
 async function tiktokViaProxy(url) {
   const j = await (await fetch(`${PROXY}/info?url=${encodeURIComponent(url)}`)).json();
   if (j.code !== 0 || !j.data) throw new Error(j.msg || 'TikTok не віддав відео');
@@ -566,7 +566,10 @@ function gemMime(f) {
 }
 const fileB64 = f => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result.split(',')[1]); r.onerror = rej; r.readAsDataURL(f); });
 async function gemFetch(url, opt = {}) {
-  const res = await fetch(url, { ...opt, headers: { 'x-goog-api-key': S.settings.gemKey, ...(opt.headers || {}) } });
+  const o = { ...opt, headers: { 'x-goog-api-key': S.settings.gemKey, ...(opt.headers || {}) } };
+  let res;
+  try { res = await fetch(`${PROXY}/g?u=${encodeURIComponent(url)}`, o); }
+  catch (e) { res = await fetch(url, o); } // запасний шлях — напряму
   if (!res.ok) {
     let msg = ''; try { msg = (await res.json()).error?.message || ''; } catch {}
     const e = new Error(msg || 'HTTP ' + res.status); e.status = res.status; throw e;
@@ -580,8 +583,7 @@ async function gemUpload(file, mime) {
     body: JSON.stringify({ file: { display_name: 'kazanok-' + Date.now() } }) });
   const upUrl = start.headers.get('x-goog-upload-url');
   if (!upUrl) throw new Error('Не вдалося почати завантаження');
-  const up = await fetch(upUrl, { method: 'POST', headers: { 'X-Goog-Upload-Offset': '0', 'X-Goog-Upload-Command': 'upload, finalize' }, body: file });
-  if (!up.ok) throw new Error('Помилка завантаження відео');
+  const up = await gemFetch(upUrl, { method: 'POST', headers: { 'X-Goog-Upload-Offset': '0', 'X-Goog-Upload-Command': 'upload, finalize' }, body: file });
   let f = (await up.json()).file;
   for (let i = 0; i < 60 && f.state === 'PROCESSING'; i++) {
     aiStatus('⏳ Gemini обробляє відео…');
