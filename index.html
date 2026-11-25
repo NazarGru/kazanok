@@ -504,14 +504,15 @@ function openAI() {
   }
   ai.files = [];
   sheet(`<h3>✨ Розпізнати рецепт</h3>
-    <label class="f">Відео чи фото з галереї</label>
+    <label class="f">Посилання на TikTok або YouTube</label>
+    <div class="addrow" style="margin:0"><input class="inp" id="ai_url" type="url" placeholder="https://vm.tiktok.com/…" inputmode="url">
+      <button class="btn sec sm" onclick="aiPasteUrl()">Вставити</button></div>
+    <label class="f">…або відео чи фото з галереї (для Instagram)</label>
     <label class="btn sec" style="cursor:pointer">🎬 Вибрати відео / фото<input type="file" accept="video/*,image/*" multiple hidden onchange="aiPick(this)"></label>
     <div id="ai_files" class="small muted" style="margin-top:6px"></div>
-    <label class="f">Посилання (YouTube розпізнаю напряму; TikTok/Instagram збережу як джерело)</label>
-    <input class="inp" id="ai_url" type="url" placeholder="https://…" inputmode="url">
     <label class="f">Опис під відео (не обовʼязково)</label>
     <textarea class="inp" id="ai_txt" rows="3" style="min-height:70px" placeholder="Можна вставити підпис з TikTok"></textarea>
-    <div class="hint small">💡 TikTok: «Поділитися» → «Зберегти відео». Instagram: збережіть Reels або запишіть екран. Потім виберіть відео тут.</div>
+    <div class="hint small">💡 TikTok: «Поділитися» → «Копіювати посилання», потім «Вставити» тут. Instagram не віддає відео за посиланням, тому збережіть Reels на телефон і виберіть з галереї.</div>
     <div id="ai_status" class="small" style="margin:8px 0;min-height:18px"></div>
     <button class="btn" id="ai_go" onclick="aiRun()">Розпізнати</button>`);
 }
@@ -519,6 +520,28 @@ function aiPick(inp) {
   ai.files = [...inp.files];
   const mb = f => (f.size / 1048576).toFixed(1) + ' МБ';
   document.getElementById('ai_files').textContent = ai.files.map(f => `${f.type.startsWith('video') ? '🎬' : '🖼️'} ${f.name} · ${mb(f)}`).join('\n');
+}
+async function aiPasteUrl() {
+  try { const t = await navigator.clipboard.readText(); const m = t.match(/https?:\/\/\S+/); document.getElementById('ai_url').value = m ? m[0] : t.trim(); }
+  catch { toast('Утримуйте поле й оберіть «Вставити»'); }
+}
+async function tiktokFetch(url) {
+  aiStatus('⬇️ Скачую відео з TikTok…');
+  const fd = new FormData(); fd.append('url', url); fd.append('hd', '0');
+  let j;
+  try { j = await (await fetch('https://www.tikwm.com/api/', { method: 'POST', body: fd })).json(); }
+  catch { throw new Error('Сервіс завантаження TikTok недоступний. Збережіть відео й виберіть його з галереї.'); }
+  if (j.code !== 0 || !j.data) throw new Error('TikTok не віддав відео (можливо, воно приватне або видалене).');
+  const d = j.data, caption = d.title || '';
+  if (d.images && d.images.length) {
+    const files = [];
+    for (const [i, src] of d.images.slice(0, 8).entries()) { try { const b = await (await fetch(src)).blob(); files.push(new File([b], `slide${i}.jpg`, { type: b.type || 'image/jpeg' })); } catch {} }
+    return { files, caption };
+  }
+  const src = d.play || ('https://www.tikwm.com/video/media/play/' + d.id + '.mp4');
+  const res = await fetch(src); if (!res.ok) throw new Error('Не вдалося скачати відео з TikTok.');
+  const b = await res.blob();
+  return { files: [new File([b], 'tiktok.mp4', { type: 'video/mp4' })], caption };
 }
 const aiStatus = t => { const e = document.getElementById('ai_status'); if (e) e.textContent = t; };
 function gemMime(f) {
@@ -603,21 +626,22 @@ async function imagePoster(file) {
 }
 async function aiRun() {
   const url = document.getElementById('ai_url').value.trim(), txt = document.getElementById('ai_txt').value.trim();
-  const yt = /(?:youtube\.com|youtu\.be)\//i.test(url);
-  if (!ai.files.length && !yt && !txt) {
-    aiStatus(/tiktok|instagram/i.test(url) ? '⚠️ TikTok та Instagram не дають скачати відео за посиланням. Збережіть відео на телефон і виберіть його вище.' : '⚠️ Виберіть відео/фото, додайте посилання YouTube або текст.');
+  const yt = /(?:youtube\.com|youtu\.be)\//i.test(url), tt = /tiktok\.com\//i.test(url);
+  if (!ai.files.length && !yt && !tt && !txt) {
+    aiStatus(/instagram/i.test(url) ? '⚠️ Instagram не віддає відео за посиланням. Збережіть Reels на телефон і виберіть його вище.' : '⚠️ Вставте посилання на TikTok/YouTube або виберіть відео/фото.');
     return;
   }
   const btn = document.getElementById('ai_go'); btn.disabled = true; btn.style.opacity = .5;
   try {
-    const parts = [];
+    const parts = []; let caption = txt;
+    if (tt && !ai.files.length) { const t = await tiktokFetch(url); ai.files = t.files; if (t.caption && !caption) caption = t.caption; }
     for (const f of ai.files) {
       const mime = gemMime(f);
       if (f.size > 18 * 1048576) { aiStatus(`⬆️ Завантажую ${f.name} (${(f.size / 1048576).toFixed(0)} МБ)…`); parts.push(await gemUpload(f, mime)); }
       else { aiStatus('⬆️ Готую файл…'); parts.push({ inline_data: { mime_type: mime, data: await fileB64(f) } }); }
     }
     if (yt) parts.push({ file_data: { file_uri: url } });
-    parts.push({ text: RECIPE_PROMPT + (txt ? `\n\nОпис від автора:\n${txt}` : '') + (url && !yt ? `\n\nПосилання на оригінал: ${url}` : '') });
+    parts.push({ text: RECIPE_PROMPT + (caption ? `\n\nОпис від автора:\n${caption}` : '') + (url && !yt ? `\n\nПосилання на оригінал: ${url}` : '') });
     aiStatus('🧠 Gemini дивиться й слухає… (до хвилини)');
     const r = await gemGenerate(parts);
     if (!r.is_recipe || !(r.ingredients || []).length) { aiStatus('🤷 Не знайшов рецепта в цьому відео.'); return; }
