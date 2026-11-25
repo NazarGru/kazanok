@@ -527,21 +527,37 @@ async function aiPasteUrl() {
 }
 async function tiktokFetch(url) {
   aiStatus('⬇️ Скачую відео з TikTok…');
-  const fd = new FormData(); fd.append('url', url); fd.append('hd', '0');
-  let j;
-  try { j = await (await fetch('https://www.tikwm.com/api/', { method: 'POST', body: fd })).json(); }
-  catch { throw new Error('Сервіс завантаження TikTok недоступний. Збережіть відео й виберіть його з галереї.'); }
-  if (j.code !== 0 || !j.data) throw new Error('TikTok не віддав відео (можливо, воно приватне або видалене).');
+  const hosts = ['https://www.tikwm.com', 'https://tikwm.com'];
+  let j, errs = [];
+  for (const h of hosts) {
+    for (const mode of ['form', 'urlenc']) {
+      try {
+        const body = mode === 'form' ? (() => { const fd = new FormData(); fd.append('url', url); fd.append('hd', '0'); return fd; })()
+                                     : new URLSearchParams({ url, hd: '0' });
+        const r = await fetch(h + '/api/', { method: 'POST', body });
+        if (!r.ok) { errs.push(`${h.replace('https://', '')} HTTP ${r.status}`); continue; }
+        j = await r.json(); j._host = h; break;
+      } catch (e) { errs.push(`${h.replace('https://', '')}: ${e.message || e}`); }
+    }
+    if (j) break;
+  }
+  if (!j) throw new Error('Сервіс завантаження TikTok недоступний з цього пристрою. Збережіть відео й виберіть його з галереї. [' + errs.slice(0, 2).join('; ') + ']');
+  if (j.code !== 0 || !j.data) throw new Error('TikTok не віддав відео (можливо, воно приватне або видалене). [' + (j.msg || j.code) + ']');
   const d = j.data, caption = d.title || '';
   if (d.images && d.images.length) {
     const files = [];
     for (const [i, src] of d.images.slice(0, 8).entries()) { try { const b = await (await fetch(src)).blob(); files.push(new File([b], `slide${i}.jpg`, { type: b.type || 'image/jpeg' })); } catch {} }
-    return { files, caption };
+    if (files.length) return { files, caption };
   }
-  const src = d.play || ('https://www.tikwm.com/video/media/play/' + d.id + '.mp4');
-  const res = await fetch(src); if (!res.ok) throw new Error('Не вдалося скачати відео з TikTok.');
-  const b = await res.blob();
-  return { files: [new File([b], 'tiktok.mp4', { type: 'video/mp4' })], caption };
+  aiStatus('⬇️ Завантажую відео…');
+  const srcs = [d.play, ...hosts.map(h => `${h}/video/media/play/${d.id}.mp4`)].filter(Boolean);
+  for (const src of srcs) {
+    try { const res = await fetch(src); if (!res.ok) { errs.push('video HTTP ' + res.status); continue; }
+      const b = await res.blob(); if (b.size < 10000) continue;
+      return { files: [new File([b], 'tiktok.mp4', { type: 'video/mp4' })], caption };
+    } catch (e) { errs.push('video: ' + (e.message || e)); }
+  }
+  throw new Error('Не вдалося скачати саме відео. Збережіть його й виберіть з галереї. [' + errs.slice(-2).join('; ') + ']');
 }
 const aiStatus = t => { const e = document.getElementById('ai_status'); if (e) e.textContent = t; };
 function gemMime(f) {
