@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Казанок</title>
+<meta name="theme-color" content="#d9653b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Казанок">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<style>
+:root{
+  --bg:#faf6f2; --card:#fff; --text:#2a211c; --muted:#8a7d74; --line:#ece4dc;
+  --accent:#d9653b; --accent-soft:#fbe6dc; --ok:#3f8f5a; --danger:#c8412b;
+  --radius:16px; --tabh:64px;
+  --safe-b:env(safe-area-inset-bottom,0px); --safe-t:env(safe-area-inset-top,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#171311;--card:#231d1a;--text:#f3ebe5;--muted:#a3968c;--line:#352c27;--accent:#ec7a4f;--accent-soft:#3d2519}
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif}
+body{padding-top:var(--safe-t);padding-bottom:calc(var(--tabh) + var(--safe-b));min-height:100vh}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none;padding:0}
+a{color:var(--accent)}
+.wrap{max-width:720px;margin:0 auto;padding:12px 16px 24px}
+.top{display:flex;align-items:center;gap:8px;min-height:52px}
+.top h1{font-size:30px;margin:0;flex:1;letter-spacing:-.5px}
+.top h2{font-size:18px;margin:0;flex:1;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.iconbtn{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-size:20px;background:var(--card);border:1px solid var(--line)}
+.iconbtn.primary{background:var(--accent);color:#fff;border-color:var(--accent);font-size:24px}
+.search{width:100%;padding:11px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);margin:6px 0 10px}
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;margin-bottom:6px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;padding:7px 14px;border-radius:999px;background:var(--card);border:1px solid var(--line);font-size:14px;white-space:nowrap}
+.chip.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:12px}
+.rcard{background:var(--card);border-radius:var(--radius);overflow:hidden;border:1px solid var(--line);text-align:left;display:flex;flex-direction:column}
+.rcard .ph{aspect-ratio:4/3;background:var(--accent-soft);display:grid;place-items:center;font-size:44px;background-size:cover;background-position:center}
+.rcard .b{padding:9px 11px 11px}
+.rcard .t{font-weight:600;font-size:15px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.rcard .m{color:var(--muted);font-size:12.5px;margin-top:4px}
+.empty{text-align:center;color:var(--muted);padding:48px 16px}
+.empty .e{font-size:54px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;margin:12px 0}
+.card h3{margin:0 0 8px;font-size:17px}
+.hero{width:100%;aspect-ratio:16/10;border-radius:var(--radius);background:var(--accent-soft) center/cover;display:grid;place-items:center;font-size:70px;margin-top:4px}
+.title{font-size:26px;margin:14px 0 6px;line-height:1.2;letter-spacing:-.3px}
+.meta{display:flex;flex-wrap:wrap;gap:6px}
+.pill{font-size:13px;padding:4px 10px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-weight:500}
+.row{display:flex;align-items:center;gap:10px}
+.between{justify-content:space-between}
+.stepper{display:flex;align-items:center;gap:4px;background:var(--bg);border-radius:999px;padding:3px}
+.stepper button{width:32px;height:32px;border-radius:50%;background:var(--card);font-size:18px;border:1px solid var(--line)}
+.stepper span{min-width:28px;text-align:center;font-weight:600}
+.macros{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center}
+.macros b{display:block;font-size:19px}
+.macros small{color:var(--muted);font-size:12px}
+.note{color:var(--muted);font-size:13px;margin-top:8px}
+ul.ing{list-style:none;margin:0;padding:0}
+ul.ing li{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+ul.ing li:last-child{border:0}
+ul.ing .q{min-width:86px;color:var(--accent);font-weight:600;font-variant-numeric:tabular-nums}
+ol.steps{margin:0;padding-left:0;list-style:none;counter-reset:s}
+ol.steps li{counter-increment:s;display:flex;gap:12px;padding:8px 0}
+ol.steps li::before{content:counter(s);flex:none;width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-size:13px;font-weight:700}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px 16px;border-radius:14px;background:var(--accent);color:#fff;font-weight:600;font-size:16px}
+.btn.sec{background:var(--card);color:var(--text);border:1px solid var(--line)}
+.btn.danger{background:transparent;color:var(--danger);border:1px solid var(--line)}
+.btn.sm{padding:9px 12px;font-size:14px;width:auto}
+.btns{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}
+label.f{display:block;font-size:13px;color:var(--muted);margin:12px 0 5px;font-weight:500}
+.inp{width:100%;padding:11px 13px;border-radius:12px;border:1px solid var(--line);background:var(--card)}
+textarea.inp{min-height:120px;resize:vertical;line-height:1.5}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.tabbar{position:fixed;left:0;right:0;bottom:0;height:calc(var(--tabh) + var(--safe-b));padding-bottom:var(--safe-b);background:color-mix(in srgb,var(--card) 88%,transparent);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-top:1px solid var(--line);display:flex;z-index:20}
+.tabbar button{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:11px;color:var(--muted);position:relative}
+.tabbar button .i{font-size:22px;filter:grayscale(1);opacity:.7}
+.tabbar button.on{color:var(--accent)}
+.tabbar button.on .i{filter:none;opacity:1}
+.badge{position:absolute;top:8px;left:calc(50% + 6px);background:var(--accent);color:#fff;font-size:10px;font-weight:700;border-radius:999px;padding:1px 5px;min-width:16px}
+.shop-group h4{margin:16px 0 4px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.sitem{display:flex;align-items:center;gap:12px;padding:11px 4px;border-bottom:1px solid var(--line)}
+.sitem .cb{width:24px;height:24px;border-radius:50%;border:2px solid var(--line);flex:none;display:grid;place-items:center;color:#fff;font-size:14px}
+.sitem.done .cb{background:var(--ok);border-color:var(--ok)}
+.sitem.done .nm{text-decoration:line-through;color:var(--muted)}
+.sitem .nm{flex:1}
+.sitem .qt{color:var(--muted);font-size:14px;font-variant-numeric:tabular-nums}
+.sitem .src{display:block;font-size:11.5px;color:var(--muted)}
+.sitem .x{color:var(--muted);font-size:18px;padding:0 4px}
+.addrow{display:flex;gap:8px;margin:8px 0}
+.addrow .inp{flex:1}
+.day{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:10px 14px;margin:10px 0}
+.day .dh{display:flex;justify-content:space-between;align-items:center;font-weight:600}
+.day .dh small{color:var(--muted);font-weight:400}
+.pr{display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--line)}
+.pr:first-of-type{border-top:0}
+.pr .th{width:38px;height:38px;border-radius:10px;background:var(--accent-soft) center/cover;display:grid;place-items:center;flex:none}
+.pr .n{flex:1;font-size:15px}
+.pr .k{font-size:12px;color:var(--muted)}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:50;display:flex;align-items:flex-end;justify-content:center;animation:fade .15s}
+.sheet{background:var(--bg);width:100%;max-width:720px;border-radius:22px 22px 0 0;padding:16px 16px calc(20px + var(--safe-b));max-height:90vh;overflow:auto;animation:up .2s ease-out}
+.sheet h3{margin:4px 0 12px}
+@keyframes up{from{transform:translateY(40px);opacity:.4}}
+@keyframes fade{from{opacity:0}}
+.cook{position:fixed;inset:0;background:var(--bg);z-index:60;display:flex;flex-direction:column;padding:calc(12px + var(--safe-t)) 18px calc(16px + var(--safe-b))}
+.cook .prog{height:4px;background:var(--line);border-radius:4px;overflow:hidden;margin:10px 0 0}
+.cook .prog i{display:block;height:100%;background:var(--accent);transition:width .25s}
+.cook .stepno{color:var(--accent);font-weight:700;margin-top:24px;font-size:15px}
+.cook .txt{font-size:24px;line-height:1.4;margin-top:10px;flex:1;overflow:auto}
+.timers{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.timer{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 14px;font-variant-numeric:tabular-nums;font-weight:600;display:flex;align-items:center;gap:8px}
+.timer.ring{background:var(--accent);color:#fff;animation:pulse 1s infinite}
+@keyframes pulse{50%{transform:scale(1.04)}}
+.toast{position:fixed;left:50%;bottom:calc(var(--tabh) + var(--safe-b) + 14px);transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 18px;border-radius:999px;font-size:14px;z-index:90;max-width:90vw;text-align:center;animation:fade .2s}
+.list-act{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.seg{display:flex;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:3px}
+.seg button{flex:1;padding:8px;border-radius:9px;font-size:14px}
+.seg button.on{background:var(--accent);color:#fff}
+.hint{background:var(--accent-soft);border-radius:12px;padding:12px 14px;font-size:14px;margin:10px 0}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<nav class="tabbar" id="tabbar"></nav>
+
+<script>
+'use strict';
+/* ====================== Дані ====================== */
+const KEY = 'kazanok.v1';
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const DAYS = ['Понеділок','Вівторок','Середа','Четвер','Пʼятниця','Субота','Неділя'];
+const CAT_EMOJI = {'Сніданки':'🍳','Супи':'🍲','Основні страви':'🍛','Салати':'🥗','Випічка':'🥐','Десерти':'🍰','Напої':'🥤','Закуски':'🥪'};
+const emojiFor = r => CAT_EMOJI[r.category] || '🍽️';
+
+function seed() {
+  return [
+    { id: uid(), title: 'Сирники з ваніллю', category: 'Сніданки', servings: 3, time: 25, fav: true, photo: '',
+      ingredients: P(['500 г кисломолочний сир','1 шт яйце','3 ст.л. борошно','2 ст.л. цукор','1 дрібка сіль','2 ст.л. олія']),
+      steps: ['Розімніть сир виделкою, додайте яйце, цукор і сіль, перемішайте.','Всипте борошно й замісіть мʼяке тісто, яке не липне до рук.','Сформуйте невеликі шайби й обваляйте їх у борошні.','Смажте на розігрітій олії по 3 хв з кожного боку до золотистої скоринки.'],
+      notes: 'Подавайте зі сметаною або ягідним варенням.', source: '', created: Date.now() },
+    { id: uid(), title: 'Червоний борщ', category: 'Супи', servings: 6, time: 90, fav: false, photo: '',
+      ingredients: P(['500 г свинина','3 шт картопля','2 шт буряк','1 шт морква','1 шт цибуля','300 г капуста','2 ст.л. томатна паста','2 зубчик часник','1 ст.л. олія','сіль за смаком']),
+      steps: ['Залийте мʼясо 3 л холодної води, доведіть до кипіння, зніміть піну і варіть 60 хв.','Наріжте картоплю кубиками й додайте в бульйон, варіть 10 хв.','Буряк і моркву натріть, цибулю наріжте. Обсмажте на олії 10 хв, додайте томатну пасту.','Додайте нашатковану капусту й засмажку в каструлю, варіть ще 10 хв.','Покладіть подрібнений часник, посоліть і дайте настоятися 15 хв.'],
+      notes: '', source: '', created: Date.now() - 1000 },
+    { id: uid(), title: 'Вівсянка з бананом', category: 'Сніданки', servings: 1, time: 10, fav: false, photo: '',
+      ingredients: P(['60 г вівсяні пластівці','200 мл молоко','1 шт банан','1 ч.л. мед']),
+      steps: ['Доведіть молоко до кипіння, всипте пластівці.','Варіть 5 хв, помішуючи.','Додайте нарізаний банан і мед.'],
+      notes: '', source: '', created: Date.now() - 2000 }
+  ];
+  function P(lines) { return lines.map(parseIngredient); }
+}
+
+let S;
+function load() {
+  try { S = JSON.parse(localStorage.getItem(KEY)); } catch { S = null; }
+  if (!S) S = { recipes: seed(), shop: [], plan: Array.from({length: 7}, () => []), settings: {} };
+  S.settings = Object.assign({ sex: 'f', age: 30, weight: 65, height: 168, activity: 1.375, goal: 0, household: 2, mealsPerDay: 2 }, S.settings);
+  if (!Array.isArray(S.plan) || S.plan.length !== 7) S.plan = Array.from({length: 7}, () => []);
+}
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(S)); }
+  catch (e) { toast('Памʼять заповнена: видаліть кілька фото або зробіть експорт'); }
+}
+
+/* ====================== Інгредієнти ====================== */
+const W = '[а-щьюяіїєґa-z]*';
+const UNIT_RE = '(кг|кілограм' + W + '|г|гр|грам' + W + '|мл|л|літр' + W + '|шт\\.?|штук' + W + '|ст\\.?\\s?л\\.?|столов' + W + '\\s+лож' + W + '|ч\\.?\\s?л\\.?|чайн' + W + '\\s+лож' + W + '|склянк' + W + '|чашк' + W + '|зубч' + W + '|пуч' + W + '|дрібк' + W + '|щіпк' + W + '|упак' + W + '|банк' + W + '|g|kg|ml|l|tbsp|tsp|cups?|pcs)';
+const NUM_RE = '(\\d+(?:[.,]\\d+)?(?:\\s*\\/\\s*\\d+)?|[½¼¾⅓⅔]|\\d+\\s*[½¼¾])';
+function normUnit(u) {
+  if (!u) return '';
+  u = u.toLowerCase().replace(/\s+/g, ' ').trim();
+  if (/^(кг|кілограм|kg)/.test(u)) return 'кг';
+  if (/^(г|гр|грам|g)$/.test(u) || /^грам/.test(u)) return 'г';
+  if (/^(мл|ml)/.test(u)) return 'мл';
+  if (/^(л|літр|l)$/.test(u) || /^літр/.test(u)) return 'л';
+  if (/^(шт|штук|pcs)/.test(u)) return 'шт';
+  if (/^(ст\.?\s?л|столов|tbsp)/.test(u)) return 'ст.л.';
+  if (/^(ч\.?\s?л|чайн|tsp)/.test(u)) return 'ч.л.';
+  if (/^(склянк|чашк|cup)/.test(u)) return 'склянка';
+  if (/^зубч/.test(u)) return 'зубчик';
+  if (/^пуч/.test(u)) return 'пучок';
+  if (/^(дрібк|щіпк)/.test(u)) return 'дрібка';
+  if (/^упак/.test(u)) return 'упак.';
+  if (/^банк/.test(u)) return 'банка';
+  return u;
+}
+function parseNum(s) {
+  if (!s) return null;
+  s = s.replace(',', '.').trim();
+  const frac = {'½': .5, '¼': .25, '¾': .75, '⅓': 1/3, '⅔': 2/3};
+  let m = s.match(/^(\d+)\s*([½¼¾])$/); if (m) return +m[1] + frac[m[2]];
+  if (frac[s]) return frac[s];
+  m = s.match(/^(\d+)\s*\/\s*(\d+)$/); if (m) return +m[1] / +m[2];
+  const n = parseFloat(s); return isNaN(n) ? null : n;
+}
+function parseIngredient(line) {
+  let s = line.replace(/^[\s•\-–—*·▪️✔️☑️]+/, '').replace(/\s+/g, ' ').trim();
+  let m = s.match(new RegExp('^' + NUM_RE + '\\s*(?:' + UNIT_RE + '(?=[\\s.]|$)\\.?)?\\s*(.+)$', 'i'));
+  if (m && m[3]) return { name: cleanName(m[3]), amount: parseNum(m[1]), unit: normUnit(m[2]) || (parseNum(m[1]) != null ? 'шт' : '') };
+  m = s.match(new RegExp('^(.+?)[\\s:—–-]+' + NUM_RE + '\\s*(?:' + UNIT_RE + ')?\\.?$', 'i'));
+  if (m) return { name: cleanName(m[1]), amount: parseNum(m[2]), unit: normUnit(m[3]) || 'шт' };
+  return { name: cleanName(s), amount: null, unit: '' };
+}
+const cleanName = n => n.replace(/[\s,:—–-]+$/, '').replace(/^[\s,:—–-]+/, '').trim();
+function fmtNum(n) {
+  if (n == null) return '';
+  if (n >= 100) return String(Math.round(n / 5) * 5);
+  if (n >= 10) return String(Math.round(n));
+  const r = Math.round(n * 10) / 10;
+  const fr = {0.5: '½', 0.3: '⅓', 0.7: '⅔', 0.2: '¼', 0.8: '¾'};
+  const whole = Math.floor(r), part = Math.round((r - whole) * 10) / 10;
+  if (part && fr[part] && Math.abs(n - (whole + {0.5:.5,0.3:1/3,0.7:2/3,0.2:.25,0.8:.75}[part])) < 0.06) return (whole ? whole : '') + fr[part];
+  return String(r).replace('.', ',');
+}
+const ingLine = i => [i.amount != null ? fmtNum(i.amount) : '', i.amount != null || i.unit ? i.unit : '', i.name].filter(Boolean).join(' ');
+
+/* ====================== Харчова цінність (на 100 г) ====================== */
+const FOOD = [
+  // [ключі, ккал, білки, жири, вуглеводи, грам за 1 шт]
+  [['кисломолочн','творог'],156,18,9,2],
+  [['моцарел'],280,22,20,2,125],[['пармезан'],390,35,28,0],[['твердий сир','голланд','чеддер'],350,25,27,1],
+  [['сир'],156,18,9,2],
+  [['борошн'],364,10,1,76],[['цукор','цукр'],399,0,0,100],[['сіль','солі','перець чорн','спеці','ваніл','розпушувач','сод','цукр','соди','лавров'],0,0,0,0],
+  [['яйц','яйце','яєць','жовт','білок яєч'],157,12.7,10.9,0.7,55],
+  [['молок'],60,3.2,3.2,4.7],[['кефір'],51,3,2.5,4],[['сметан'],206,2.8,20,3.2],[['вершки','вершків'],205,2.5,20,4],
+  [['йогурт'],66,5,3.2,3.5],[['масл'],748,0.5,82,0.8],[['олі'],899,0,99.9,0],
+  [['рис'],344,6.7,0.7,78.9],[['гречк'],313,12.6,3.3,62],[['вівсян','пластівц'],352,12.3,6.2,61.8],
+  [['макарон','спагет','паст','локшин'],344,10.4,1.1,71.5],[['булгур','кус-кус','кускус'],342,12,1.3,74],
+  [['томатн'],99,4.8,0,19],
+  [['картопл'],77,2,0.4,16.3,150],[['цибул'],41,1.4,0,8.2,90],[['моркв'],35,1.3,0.1,6.9,80],[['буряк'],42,1.5,0.1,8.8,200],
+  [['капуст'],28,1.8,0.1,4.7],[['помідор','томат'],20,0.6,0.2,4.2,120],[['огір'],15,0.8,0.1,2.8,100],
+  [['перець','перц'],27,1.3,0,5.3,150],[['часник'],149,6.5,0.5,30,5],[['кабачк','цукіні'],24,0.6,0.3,4.6,250],
+  [['баклажан'],24,1.2,0.1,4.5,250],[['гриб','печериц'],27,4.3,1,0.1,20],[['кукурудз'],86,3.3,1.2,19],
+  [['горош'],81,5.4,0.4,14.5],[['шпинат'],23,2.9,0.4,3.6],[['авокадо'],160,2,14.7,8.5,150],[['зелен','кріп','петрушк','базилік'],40,3,0.5,6],
+  [['банан'],89,1.1,0.3,22.8,120],[['яблук'],52,0.3,0.2,14,180],[['лимон'],29,1.1,0.3,9,100],[['ягод','полуниц','малин','чорниц'],45,0.8,0.4,9],
+  [['курк','куряч','кури','філе','індич'],113,23.6,1.9,0.4],[['свинин'],259,16,21.6,0],[['яловичин','телятин'],187,18.9,12.4,0],
+  [['фарш'],250,17,20,0],[['лосос','сьомг','форел'],208,20,13,0],[['тунц'],116,26,1,0],[['риб','хек','минтай'],86,17,1.5,0],
+  [['бекон'],541,37,42,1.4],[['шинк'],145,21,6,1.5],[['ковбас','сосиск'],260,12,23,2],[['сало'],797,2.4,89,0],
+  [['квасол'],333,21,2,60],[['нут'],364,19,6,61],[['сочевиц'],352,25,1,60],
+  [['горіх','мигдал'],650,15,60,14],[['мед'],304,0.3,0,82],[['шоколад'],546,5,31,61],[['какао'],289,24,15,10],
+  [['хліб','батон'],265,9,3.2,49,30],[['лаваш'],277,9,1,57],[['тортил'],300,8,8,50,60],[['вода','води','воду','бульйон'],0,0,0,0]
+].flatMap(([keys, ...v]) => keys.map(k => [k, v])).sort((a, b) => b[0].length - a[0].length);
+const UNIT_G = { 'г': 1, 'кг': 1000, 'мл': 1, 'л': 1000, 'ст.л.': 15, 'ч.л.': 5, 'склянка': 200, 'зубчик': 5, 'пучок': 30, 'дрібка': 0.5 };
+function foodOf(name) { const n = name.toLowerCase(); const f = FOOD.find(([k]) => n.includes(k)); return f ? f[1] : null; }
+function gramsOf(ing, food) {
+  if (ing.amount == null) return 0;
+  if (UNIT_G[ing.unit] != null) return ing.amount * UNIT_G[ing.unit];
+  if (ing.unit === 'шт' || !ing.unit) return ing.amount * (food && food[4] ? food[4] : 100);
+  return null;
+}
+function nutrition(r) {
+  if (r.macros && r.macros.kcal) return { ...r.macros, manual: true };
+  let k = 0, p = 0, f = 0, c = 0, hit = 0, total = 0;
+  for (const i of r.ingredients) {
+    if (i.amount == null) continue;
+    total++;
+    const food = foodOf(i.name); if (!food) continue;
+    const g = gramsOf(i, food); if (g == null) continue;
+    hit++; k += food[0] * g / 100; p += food[1] * g / 100; f += food[2] * g / 100; c += food[3] * g / 100;
+  }
+  const s = Math.max(1, r.servings || 1);
+  return { kcal: Math.round(k / s), p: Math.round(p / s), f: Math.round(f / s), c: Math.round(c / s), hit, total };
+}
+function dailyTarget() {
+  const s = S.settings;
+  if (!s.weight || !s.height || !s.age) return null;
+  const bmr = 10 * s.weight + 6.25 * s.height - 5 * s.age + (s.sex === 'm' ? 5 : -161);
+  return Math.round(bmr * (+s.activity || 1.375) * (1 + (+s.goal || 0)));
+}
+
+/* ====================== Категорії магазину ====================== */
+const SHOP_CATS = [
+  ['Овочі, фрукти, зелень', ['картопл','цибул','моркв','буряк','капуст','помідор','томат ','огір','перець болг','часник','банан','яблук','лимон','зелен','кріп','петрушк','гриб','печериц','авокадо','шпинат','салат','кабачк','баклажан','ягод','апельсин']],
+  ['Молочне та яйця', ['молок','кефір','сметан','вершк','сир','масл','йогурт','яйц','яйце','яєць','ряжанк']],
+  ['Мʼясо та риба', ['кур','філе','свинин','яловичин','телятин','фарш','лосос','сьомг','тунц','бекон','шинк','риб','ковбас','сосиск','сало','індич','форел']],
+  ['Хліб', ['хліб','лаваш','тортил','батон','булк']],
+  ['Бакалія', ['борошн','цукор','рис','гречк','вівсян','пластівц','макарон','спагет','паст','квасол','нут','сочевиц','розпушувач','сод','цукр','ваніл','какао','мед','горіх','олі','сіль','солі','перець','спеці','кава','чай','шоколад','крохмал','оцет','соус','кетчуп','майонез']],
+];
+function shopCat(name) {
+  const n = name.toLowerCase();
+  for (const [cat, keys] of SHOP_CATS) if (keys.some(k => n.includes(k))) return cat;
+  return 'Інше';
+}
+
+/* ====================== Стан інтерфейсу ====================== */
+const ui = { tab: 'recipes', view: 'list', id: null, q: '', cat: 'Усі', serv: null, draft: null, stack: [] };
+function go(tab, view = 'list', id = null, push = true) {
+  if (push) ui.stack.push({ tab: ui.tab, view: ui.view, id: ui.id });
+  Object.assign(ui, { tab, view, id, serv: null });
+  render(); window.scrollTo(0, 0);
+}
+function back() { const p = ui.stack.pop(); if (p) go(p.tab, p.view, p.id, false); else go('recipes', 'list', null, false); }
+const R = id => S.recipes.find(r => r.id === id);
+
+function toast(msg) {
+  document.querySelectorAll('.toast').forEach(t => t.remove());
+  const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t); setTimeout(() => t.remove(), 2400);
+}
+function sheet(html) {
+  closeSheet();
+  const o = document.createElement('div'); o.className = 'overlay'; o.id = 'ov';
+  o.innerHTML = `<div class="sheet">${html}</div>`;
+  o.addEventListener('click', e => { if (e.target === o) closeSheet(); });
+  document.body.appendChild(o);
+}
+function closeSheet() { document.getElementById('ov')?.remove(); }
+
+/* ====================== Рендер ====================== */
+function render() {
+  const a = document.getElementById('app');
+  const v = ui.tab === 'recipes' ? (ui.view === 'detail' ? vDetail() : ui.view === 'edit' ? vEdit() : vList())
+          : ui.tab === 'plan' ? vPlan() : ui.tab === 'shop' ? vShop() : vMore();
+  a.innerHTML = `<div class="wrap">${v}</div>`;
+  renderTabs();
+  if (ui.tab === 'recipes' && ui.view === 'list') {
+    const s = document.getElementById('q');
+    s?.addEventListener('input', e => { ui.q = e.target.value; document.getElementById('rgrid').innerHTML = gridHTML(); });
+  }
+}
+function renderTabs() {
+  const left = S.shop.filter(i => !i.checked).length;
+  const tabs = [['recipes','📖','Рецепти'],['plan','🗓️','Меню'],['shop','🛒','Покупки'],['more','⚙️','Ще']];
+  document.getElementById('tabbar').innerHTML = tabs.map(([t, i, l]) =>
+    `<button class="${ui.tab === t ? 'on' : ''}" onclick="ui.stack=[];go('${t}','list',null,false)"><span class="i">${i}</span>${l}${t === 'shop' && left ? `<span class="badge">${left}</span>` : ''}</button>`).join('');
+}
+
+/* ---- Список рецептів ---- */
+function vList() {
+  const cats = ['Усі', '★ Улюблені', ...new Set(S.recipes.map(r => r.category).filter(Boolean))];
+  return `<div class="top"><h1>Рецепти</h1><button class="iconbtn primary" onclick="newRecipe()" aria-label="Новий рецепт">+</button></div>
+  <input id="q" class="search" type="search" placeholder="Пошук за назвою чи інгредієнтом" value="${esc(ui.q)}">
+  <div class="chips">${cats.map(c => `<button class="chip ${ui.cat === c ? 'on' : ''}" onclick="ui.cat='${esc(c)}';render()">${esc(c)}</button>`).join('')}</div>
+  <div class="grid" id="rgrid">${gridHTML()}</div>`;
+}
+function gridHTML() {
+  const q = ui.q.toLowerCase().trim();
+  const list = S.recipes.filter(r =>
+    (ui.cat === 'Усі' || (ui.cat === '★ Улюблені' ? r.fav : r.category === ui.cat)) &&
+    (!q || r.title.toLowerCase().includes(q) || r.ingredients.some(i => i.name.toLowerCase().includes(q)))
+  ).sort((a, b) => (b.fav - a.fav) || (b.created - a.created));
+  if (!list.length) return `<div class="empty" style="grid-column:1/-1"><div class="e">🥄</div>${S.recipes.length ? 'Нічого не знайдено' : 'Додайте перший рецепт кнопкою «+»'}</div>`;
+  return list.map(r => {
+    const n = nutrition(r);
+    return `<button class="rcard" onclick="go('recipes','detail','${r.id}')">
+      <div class="ph" style="${r.photo ? `background-image:url(${r.photo})` : ''}">${r.photo ? '' : emojiFor(r)}</div>
+      <div class="b"><div class="t">${r.fav ? '★ ' : ''}${esc(r.title)}</div>
+      <div class="m">${r.time ? `⏱ ${r.time} хв · ` : ''}${n.kcal ? `${n.kcal} ккал` : esc(r.category || '')}</div></div></button>`;
+  }).join('');
+}
+
+/* ---- Рецепт ---- */
+function vDetail() {
+  const r = R(ui.id); if (!r) { ui.view = 'list'; return vList(); }
+  const serv = ui.serv ?? r.servings, k = serv / (r.servings || 1);
+  const n = nutrition(r), target = dailyTarget();
+  return `<div class="top"><button class="iconbtn" onclick="back()" aria-label="Назад">‹</button><h2></h2>
+    <button class="iconbtn" onclick="toggleFav('${r.id}')">${r.fav ? '★' : '☆'}</button>
+    <button class="iconbtn" onclick="shareRecipe('${r.id}')" aria-label="Поділитися">⤴︎</button>
+    <button class="iconbtn" onclick="editRecipe('${r.id}')" aria-label="Редагувати">✎</button></div>
+  <div class="hero" style="${r.photo ? `background-image:url(${r.photo})` : ''}">${r.photo ? '' : emojiFor(r)}</div>
+  <h1 class="title">${esc(r.title)}</h1>
+  <div class="meta">${r.category ? `<span class="pill">${esc(r.category)}</span>` : ''}${r.time ? `<span class="pill">⏱ ${r.time} хв</span>` : ''}<span class="pill">${r.ingredients.length} інгр.</span></div>
+  ${n.kcal ? `<div class="card"><div class="row between"><h3 style="margin:0">На 1 порцію</h3>${target ? `<span class="small muted">${Math.round(n.kcal / target * 100)}% денної норми</span>` : ''}</div>
+    <div class="macros" style="margin-top:10px"><div><b>${n.kcal}</b><small>ккал</small></div><div><b>${n.p}</b><small>білки, г</small></div><div><b>${n.f}</b><small>жири, г</small></div><div><b>${n.c}</b><small>вуглев., г</small></div></div>
+    ${n.manual ? '' : `<div class="note">≈ орієнтовно, враховано ${n.hit} з ${n.total} інгредієнтів</div>`}</div>` : ''}
+  <div class="card"><div class="row between"><h3 style="margin:0">Інгредієнти</h3>
+    <div class="stepper"><button onclick="setServ(-1)">−</button><span>${serv}</span><button onclick="setServ(1)">+</button></div></div>
+    <div class="small muted" style="margin:2px 0 6px">${porc(serv)}</div>
+    <ul class="ing">${r.ingredients.map(i => `<li><span class="q">${i.amount != null ? fmtNum(i.amount * k) + ' ' + esc(i.unit) : esc(i.unit)}</span><span>${esc(i.name)}</span></li>`).join('')}</ul>
+  </div>
+  <div class="btns"><button class="btn" onclick="startCook('${r.id}')">👩‍🍳 Готувати</button><button class="btn sec" onclick="addToShop('${r.id}',${serv})">🛒 У покупки</button></div>
+  ${r.steps.length ? `<div class="card"><h3>Приготування</h3><ol class="steps">${r.steps.map(s => `<li><span>${esc(s)}</span></li>`).join('')}</ol></div>` : ''}
+  ${r.notes ? `<div class="card"><h3>Нотатки</h3><div style="white-space:pre-wrap">${esc(r.notes)}</div></div>` : ''}
+  ${r.source ? `<div class="card small">Джерело: <a href="${esc(r.source)}" target="_blank" rel="noopener">${esc(r.source.replace(/^https?:\/\/(www\.)?/, '').slice(0, 60))}</a></div>` : ''}
+  <button class="btn danger" style="margin-top:12px" onclick="delRecipe('${r.id}')">Видалити рецепт</button>`;
+}
+const porc = n => n % 10 === 1 && n % 100 !== 11 ? 'порція' : [2,3,4].includes(n % 10) && ![12,13,14].includes(n % 100) ? 'порції' : 'порцій';
+function setServ(d) { const r = R(ui.id); ui.serv = Math.max(1, (ui.serv ?? r.servings) + d); render(); }
+function toggleFav(id) { const r = R(id); r.fav = !r.fav; save(); render(); }
+function delRecipe(id) {
+  if (!confirm('Видалити рецепт?')) return;
+  S.recipes = S.recipes.filter(r => r.id !== id); S.plan = S.plan.map(d => d.filter(x => x !== id));
+  save(); ui.stack = []; go('recipes', 'list', null, false); toast('Рецепт видалено');
+}
+
+/* ---- Редагування ---- */
+function newRecipe() { ui.draft = { id: null, title: '', category: '', servings: 2, time: '', photo: '', ingredients: [], steps: [], notes: '', source: '', macros: null }; go('recipes', 'edit'); }
+function editRecipe(id) { ui.draft = JSON.parse(JSON.stringify(R(id))); go('recipes', 'edit', id); }
+function vEdit() {
+  const d = ui.draft, m = d.macros || {};
+  const cats = [...new Set([...Object.keys(CAT_EMOJI), ...S.recipes.map(r => r.category).filter(Boolean)])];
+  return `<div class="top"><button class="iconbtn" onclick="back()">✕</button><h2>${d.id ? 'Редагування' : 'Новий рецепт'}</h2><button class="btn sm" onclick="saveDraft()">Зберегти</button></div>
+  ${d.id ? '' : `<button class="btn sec" onclick="openImport()">📋 Вставити рецепт з тексту</button>`}
+  <label class="f">Фото</label>
+  <label class="hero" id="ph" style="cursor:pointer;aspect-ratio:16/7;font-size:15px;${d.photo ? `background-image:url(${d.photo})` : ''}">${d.photo ? '' : '<span class="muted">📷 Додати фото</span>'}
+    <input type="file" accept="image/*" hidden onchange="pickPhoto(this)"></label>
+  ${d.photo ? `<button class="small muted" style="margin-top:6px" onclick="syncDraft();ui.draft.photo='';render()">Прибрати фото</button>` : ''}
+  <label class="f">Назва</label><input class="inp" id="e_title" value="${esc(d.title)}" placeholder="Напр., Паста з куркою">
+  <div class="grid2"><div><label class="f">Категорія</label><input class="inp" id="e_cat" list="cats" value="${esc(d.category)}" placeholder="Основні страви">
+    <datalist id="cats">${cats.map(c => `<option value="${esc(c)}">`).join('')}</datalist></div>
+    <div class="grid2"><div><label class="f">Порцій</label><input class="inp" id="e_serv" type="number" min="1" inputmode="numeric" value="${d.servings || 1}"></div>
+    <div><label class="f">Хвилин</label><input class="inp" id="e_time" type="number" min="0" inputmode="numeric" value="${d.time || ''}"></div></div></div>
+  <label class="f">Інгредієнти — кожен з нового рядка, напр. «200 г борошно», «2 шт яйце», «сіль за смаком»</label>
+  <textarea class="inp" id="e_ing" rows="8">${esc(d.ingredients.map(ingLine).join('\n'))}</textarea>
+  <label class="f">Кроки — кожен з нового рядка. Час («10 хв») стане таймером</label>
+  <textarea class="inp" id="e_steps" rows="8">${esc(d.steps.join('\n'))}</textarea>
+  <label class="f">КБЖВ на порцію (не обовʼязково, інакше порахую сам)</label>
+  <div class="grid4"><input class="inp" id="m_k" inputmode="decimal" placeholder="ккал" value="${m.kcal ?? ''}"><input class="inp" id="m_p" inputmode="decimal" placeholder="Б" value="${m.p ?? ''}"><input class="inp" id="m_f" inputmode="decimal" placeholder="Ж" value="${m.f ?? ''}"><input class="inp" id="m_c" inputmode="decimal" placeholder="В" value="${m.c ?? ''}"></div>
+  <label class="f">Посилання на джерело</label><input class="inp" id="e_src" type="url" value="${esc(d.source)}" placeholder="https://…">
+  <label class="f">Нотатки</label><textarea class="inp" id="e_notes" rows="3" style="min-height:70px">${esc(d.notes)}</textarea>
+  <button class="btn" style="margin-top:16px" onclick="saveDraft()">Зберегти</button>`;
+}
+function syncDraft() {
+  const d = ui.draft, v = id => document.getElementById(id)?.value ?? '';
+  d.title = v('e_title').trim(); d.category = v('e_cat').trim();
+  d.servings = Math.max(1, parseInt(v('e_serv')) || 1); d.time = parseInt(v('e_time')) || '';
+  d.ingredients = v('e_ing').split('\n').map(s => s.trim()).filter(Boolean).map(parseIngredient);
+  d.steps = v('e_steps').split('\n').map(s => s.replace(/^\s*\d+[.)]\s*/, '').trim()).filter(Boolean);
+  d.source = v('e_src').trim(); d.notes = v('e_notes').trim();
+  const num = id => { const x = parseFloat(v(id).replace(',', '.')); return isNaN(x) ? null : x; };
+  d.macros = num('m_k') ? { kcal: num('m_k'), p: num('m_p') || 0, f: num('m_f') || 0, c: num('m_c') || 0 } : null;
+}
+function saveDraft() {
+  syncDraft(); const d = ui.draft;
+  if (!d.title) { toast('Вкажіть назву'); return; }
+  if (d.id) { const i = S.recipes.findIndex(r => r.id === d.id); S.recipes[i] = d; }
+  else { d.id = uid(); d.created = Date.now(); d.fav = false; S.recipes.push(d); }
+  save(); ui.stack = ui.stack.filter(s => s.view !== 'edit' && !(s.view === 'detail' && s.id === d.id));
+  go('recipes', 'detail', d.id, false); toast('Збережено');
+}
+function pickPhoto(inp) {
+  const file = inp.files[0]; if (!file) return;
+  syncDraft();
+  const img = new Image(), url = URL.createObjectURL(file);
+  img.onload = () => {
+    const max = 900, sc = Math.min(1, max / Math.max(img.width, img.height));
+    const c = document.createElement('canvas'); c.width = img.width * sc; c.height = img.height * sc;
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    ui.draft.photo = c.toDataURL('image/jpeg', 0.72); URL.revokeObjectURL(url); render();
+  };
+  img.src = url;
+}
+
+/* ---- Імпорт з тексту ---- */
+function openImport() {
+  sheet(`<h3>Вставте текст рецепта</h3>
+  <p class="small muted">Скопіюйте опис з TikTok, Instagram, сайту чи нотаток. Розпізнаю назву, інгредієнти й кроки, далі можна виправити.</p>
+  <textarea class="inp" id="imp" rows="10" placeholder="Сирники&#10;Інгредієнти:&#10;500 г сиру&#10;1 яйце&#10;...&#10;Приготування:&#10;1. Змішати…"></textarea>
+  <div class="btns"><button class="btn sec" onclick="pasteClip()">Вставити з буфера</button><button class="btn" onclick="doImport()">Розпізнати</button></div>`);
+}
+async function pasteClip() { try { document.getElementById('imp').value = await navigator.clipboard.readText(); } catch { toast('Утримуйте поле й оберіть «Вставити»'); } }
+function doImport() {
+  const txt = document.getElementById('imp').value.trim(); if (!txt) return;
+  const r = parseRecipeText(txt); closeSheet(); syncDraft();
+  const d = ui.draft;
+  if (!d.title) d.title = r.title; if (r.servings) d.servings = r.servings; if (r.time) d.time = r.time; if (r.source) d.source = r.source;
+  d.ingredients = r.ingredients.length ? r.ingredients : d.ingredients; d.steps = r.steps.length ? r.steps : d.steps;
+  render(); toast(`Знайдено: ${r.ingredients.length} інгр., ${r.steps.length} кроків`);
+}
+function parseRecipeText(txt) {
+  const lines = txt.split(/\r?\n/).map(l => l.trim()).filter(l => l && !/^#\w/.test(l));
+  let title = '', mode = null, ingredients = [], steps = [], servings = null, time = null, source = '';
+  const isIngHead = l => /^(інгредієнт|склад|що потрібно|нам знадобиться|продукти|ingredients|ингредиент)/i.test(l);
+  const isStepHead = l => /^(приготування|спосіб|як готувати|рецепт:|кроки|інструкц|method|directions|instructions|steps|приготовление)/i.test(l);
+  for (let l of lines) {
+    const url = l.match(/https?:\/\/\S+/); if (url && !source) { source = url[0]; if (l === url[0]) continue; }
+    const sv = l.match(/(\d+)\s*(порц|serving|персон)/i) || l.match(/^(?:порці\S*|serves|servings)[^\d]{0,5}(\d+)/i); if (sv && l.length < 40) { servings = +sv[1]; continue; }
+    const tm = l.match(/(?:час|time)[^\d]{0,15}(\d+)\s*(хв|min|год|h)/i); if (tm && l.length < 50) { time = /год|h/i.test(tm[2]) ? tm[1] * 60 : +tm[1]; continue; }
+    if (isIngHead(l)) { mode = 'ing'; const rest = l.replace(/^[^:]*:\s*/, ''); if (rest && rest !== l) rest.split(/[,;]/).forEach(x => x.trim() && ingredients.push(parseIngredient(x))); continue; }
+    if (isStepHead(l)) { mode = 'step'; continue; }
+    const clean = l.replace(/^[\p{Extended_Pictographic}️\s]+/u, '');
+    if (!clean) continue;
+    if (!title && !mode) { title = clean.replace(/[:.!]+$/, '').slice(0, 80); continue; }
+    const numbered = /^\d+[.)]\s+/.test(clean);
+    const looksIng = new RegExp('^' + NUM_RE + '\\s*' + UNIT_RE + '?\\s', 'i').test(clean) || /^[-•*·]/.test(l) || /за смаком|to taste/i.test(clean);
+    if (mode === 'step' || (numbered && clean.length > 25)) steps.push(clean.replace(/^\d+[.)]\s+/, ''));
+    else if (mode === 'ing' || (looksIng && clean.length < 60)) ingredients.push(parseIngredient(clean));
+    else if (clean.length > 25) steps.push(clean);
+  }
+  return { title: title || 'Новий рецепт', ingredients, steps, servings, time, source };
+}
+
+/* ---- Поділитися рецептом (посилання з рецептом усередині) ---- */
+const b64u = bytes => { let s = ''; bytes.forEach(b => s += String.fromCharCode(b)); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
+const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+async function pack(obj) {
+  const bytes = new TextEncoder().encode(JSON.stringify(obj));
+  if ('CompressionStream' in window) {
+    const st = new Blob([bytes]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+    return 'z' + b64u(new Uint8Array(await new Response(st).arrayBuffer()));
+  }
+  return 'p' + b64u(bytes);
+}
+async function unpack(s) {
+  const bytes = unb64u(s.slice(1));
+  if (s[0] === 'z') { const st = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw')); return JSON.parse(await new Response(st).text()); }
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
+async function shareRecipe(id) {
+  const r = R(id);
+  const { photo, id: _, fav, created, ...rest } = r;
+  const link = location.origin + location.pathname + '#r=' + await pack(rest);
+  const text = `${r.title}\n\nІнгредієнти (${r.servings} ${porc(r.servings)}):\n${r.ingredients.map(i => '• ' + ingLine(i)).join('\n')}\n\nПриготування:\n${r.steps.map((s, i) => `${i + 1}. ${s}`).join('\n')}`;
+  sheet(`<h3>Поділитися «${esc(r.title)}»</h3>
+    <button class="btn" onclick="doShare(${esc(JSON.stringify({ title: r.title, url: link }))})">🔗 Посилання на рецепт</button>
+    <p class="small muted">Хто відкриє посилання, зможе зберегти рецепт у свій Казанок (без фото).</p>
+    <button class="btn sec" onclick="doShare(${esc(JSON.stringify({ title: r.title, text }))})">📝 Текстом</button>`);
+}
+async function doShare(data) {
+  closeSheet();
+  try { if (navigator.share) await navigator.share(data); else { await navigator.clipboard.writeText(data.url || data.text); toast('Скопійовано'); } }
+  catch (e) { if (e.name !== 'AbortError') { try { await navigator.clipboard.writeText(data.url || data.text); toast('Скопійовано'); } catch {} } }
+}
+async function checkHash() {
+  const m = location.hash.match(/^#r=(.+)$/); if (!m) return;
+  history.replaceState(null, '', location.pathname);
+  try {
+    const r = await unpack(m[1]); window._incoming = r;
+    sheet(`<h3>Новий рецепт</h3><p>Зберегти «<b>${esc(r.title)}</b>» у вашу книгу рецептів?</p>
+      <div class="btns"><button class="btn sec" onclick="closeSheet()">Ні</button><button class="btn" onclick="acceptIncoming()">Зберегти</button></div>`);
+  } catch { toast('Не вдалося відкрити посилання'); }
+}
+function acceptIncoming() {
+  const r = window._incoming; closeSheet();
+  const rec = { photo: '', notes: '', source: '', category: '', steps: [], ingredients: [], servings: 2, ...r, id: uid(), created: Date.now(), fav: false };
+  S.recipes.push(rec); save(); go('recipes', 'detail', rec.id); toast('Рецепт збережено');
+}
+
+/* ====================== Покупки ====================== */
+function addItems(ings, k, from) {
+  let n = 0;
+  for (const i of ings) {
+    const name = i.name.trim(); if (!name) continue;
+    const amount = i.amount != null ? i.amount * k : null;
+    const ex = S.shop.find(x => !x.checked && x.name.toLowerCase() === name.toLowerCase() && x.unit === i.unit);
+    if (ex) { if (amount != null) ex.amount = (ex.amount || 0) + amount; if (from && !ex.from.includes(from)) ex.from.push(from); }
+    else S.shop.push({ id: uid(), name, amount, unit: i.unit, checked: false, from: from ? [from] : [], cat: shopCat(name) });
+    n++;
+  }
+  return n;
+}
+function addToShop(id, serv) {
+  const r = R(id); const n = addItems(r.ingredients, serv / (r.servings || 1), r.title);
+  save(); renderTabs(); toast(`Додано ${n} позицій у покупки`);
+}
+function vShop() {
+  const items = S.shop;
+  const groups = {};
+  items.filter(i => !i.checked).forEach(i => (groups[i.cat] ||= []).push(i));
+  const order = [...SHOP_CATS.map(c => c[0]), 'Інше'];
+  const done = items.filter(i => i.checked);
+  const row = i => `<div class="sitem ${i.checked ? 'done' : ''}">
+    <button class="cb" onclick="toggleItem('${i.id}')" aria-label="Відмітити">${i.checked ? '✓' : ''}</button>
+    <div class="nm" onclick="toggleItem('${i.id}')">${esc(i.name)}${i.from?.length ? `<span class="src">${esc(i.from.join(', '))}</span>` : ''}</div>
+    <span class="qt">${i.amount != null ? fmtNum(i.amount) + ' ' + esc(i.unit) : esc(i.unit)}</span>
+    <button class="x" onclick="delItem('${i.id}')" aria-label="Видалити">×</button></div>`;
+  return `<div class="top"><h1>Покупки</h1>${items.length ? `<button class="iconbtn" onclick="shareList()" aria-label="Поділитися">⤴︎</button>` : ''}</div>
+  <form class="addrow" onsubmit="event.preventDefault();addManual()"><input class="inp" id="newitem" placeholder="Додати: «1 л молоко», «хліб»…" enterkeyhint="done"><button class="iconbtn primary" type="submit">+</button></form>
+  ${!items.length ? `<div class="empty"><div class="e">🛒</div>Список порожній.<br>Додайте продукти вручну або з рецепта.</div>` : ''}
+  ${order.filter(c => groups[c]).map(c => `<div class="shop-group"><h4>${c}</h4>${groups[c].map(row).join('')}</div>`).join('')}
+  ${done.length ? `<div class="shop-group"><h4>Куплено · ${done.length}</h4>${done.map(row).join('')}</div>` : ''}
+  ${items.length ? `<div class="list-act"><button class="btn sec sm" onclick="clearShop(true)">Прибрати куплене</button><button class="btn danger sm" onclick="clearShop(false)">Очистити все</button></div>` : ''}`;
+}
+function addManual() {
+  const el = document.getElementById('newitem'), v = el.value.trim(); if (!v) return;
+  v.split(/[,;\n]/).map(s => s.trim()).filter(Boolean).forEach(s => addItems([parseIngredient(s)], 1, ''));
+  save(); render(); document.getElementById('newitem').focus();
+}
+function toggleItem(id) { const i = S.shop.find(x => x.id === id); i.checked = !i.checked; save(); render(); }
+function delItem(id) { S.shop = S.shop.filter(x => x.id !== id); save(); render(); }
+function clearShop(onlyDone) { if (!onlyDone && !confirm('Очистити весь список?')) return; S.shop = onlyDone ? S.shop.filter(i => !i.checked) : []; save(); render(); }
+function shareList() {
+  const left = S.shop.filter(i => !i.checked);
+  const text = '🛒 Список покупок\n' + left.map(i => `☐ ${i.name}${i.amount != null ? ' — ' + fmtNum(i.amount) + ' ' + i.unit : ''}`).join('\n');
+  doShare({ title: 'Список покупок', text });
+}
+
+/* ====================== Меню на тиждень ====================== */
+function vPlan() {
+  const target = dailyTarget();
+  const days = S.plan.map((ids, d) => {
+    const rs = ids.map(R).filter(Boolean);
+    const kcal = rs.reduce((s, r) => s + (nutrition(r).kcal || 0), 0);
+    return `<div class="day"><div class="dh"><span>${DAYS[d]}</span><small>${kcal ? `${kcal} ккал${target ? ' / ' + target : ''}` : ''}</small></div>
+      ${rs.map((r, j) => `<div class="pr"><div class="th" style="${r.photo ? `background-image:url(${r.photo})` : ''}">${r.photo ? '' : emojiFor(r)}</div>
+        <div class="n" onclick="go('recipes','detail','${r.id}')">${esc(r.title)}<div class="k">${nutrition(r).kcal ? nutrition(r).kcal + ' ккал/порц.' : ''}</div></div>
+        <button class="x muted" style="font-size:18px" onclick="planDel(${d},${j})">×</button></div>`).join('')}
+      <button class="small" style="color:var(--accent);padding:6px 0" onclick="planPick(${d})">+ Додати страву</button></div>`;
+  }).join('');
+  return `<div class="top"><h1>Меню</h1></div>
+  <div class="btns"><button class="btn" onclick="planGenerate()">✨ Згенерувати</button><button class="btn sec" onclick="planToShop()">🛒 Усе в покупки</button></div>
+  <div class="small muted">Порції для покупок: ${S.settings.household} ${S.settings.household === 1 ? 'людина' : 'людей'} · змінити в розділі «Ще»</div>
+  ${days}
+  <button class="btn danger" style="margin-top:8px" onclick="if(confirm('Очистити меню?')){S.plan=S.plan.map(()=>[]);save();render()}">Очистити тиждень</button>`;
+}
+function planPick(d) {
+  if (!S.recipes.length) { toast('Спершу додайте рецепти'); return; }
+  sheet(`<h3>${DAYS[d]}: додати страву</h3>${[...S.recipes].sort((a, b) => a.title.localeCompare(b.title, 'uk')).map(r =>
+    `<div class="pr" onclick="S.plan[${d}].push('${r.id}');save();closeSheet();render()" style="cursor:pointer"><div class="th" style="${r.photo ? `background-image:url(${r.photo})` : ''}">${r.photo ? '' : emojiFor(r)}</div><div class="n">${esc(r.title)}<div class="k">${esc(r.category || '')}</div></div></div>`).join('')}`);
+}
+function planDel(d, j) { S.plan[d].splice(j, 1); save(); render(); }
+function planGenerate() {
+  if (!S.recipes.length) { toast('Спершу додайте рецепти'); return; }
+  if (S.plan.some(d => d.length) && !confirm('Замінити поточне меню?')) return;
+  const n = S.settings.mealsPerDay || 2;
+  const breakfasts = S.recipes.filter(r => r.category === 'Сніданки'), mains = S.recipes.filter(r => !['Сніданки', 'Десерти', 'Напої'].includes(r.category));
+  const bag = (arr) => { let pool = []; return () => { if (!pool.length) pool = [...arr].sort(() => Math.random() - .5); return pool.pop(); }; };
+  const nb = bag(breakfasts.length ? breakfasts : S.recipes), nm = bag(mains.length ? mains : S.recipes);
+  S.plan = S.plan.map(() => {
+    const day = []; if (n >= 3 || (n === 2 && breakfasts.length)) day.push(nb().id);
+    let tries = 0;
+    while (day.length < n) { const r = nm(); if (!day.includes(r.id) || ++tries > 10) day.push(r.id); }
+    return day;
+  });
+  save(); render(); toast('Меню на тиждень готове');
+}
+function planToShop() {
+  const ids = S.plan.flat(); if (!ids.length) { toast('Меню порожнє'); return; }
+  let n = 0; ids.forEach(id => { const r = R(id); if (r) n += addItems(r.ingredients, S.settings.household / (r.servings || 1), r.title); });
+  save(); renderTabs(); toast(`Додано у покупки (${n} позицій)`);
+}
+
+/* ====================== Ще / налаштування ====================== */
+function vMore() {
+  const s = S.settings, t = dailyTarget();
+  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  return `<div class="top"><h1>Ще</h1></div>
+  ${standalone ? '' : `<div class="hint">📲 <b>Встановити на iPhone:</b> у Safari натисніть «Поділитися» ⤴︎ → «На екран „Додому“». Додаток працюватиме як звичайний і без інтернету.</div>`}
+  <div class="card"><h3>Денна норма калорій</h3>
+    <div class="seg"><button class="${s.sex === 'f' ? 'on' : ''}" onclick="setS('sex','f')">Жінка</button><button class="${s.sex === 'm' ? 'on' : ''}" onclick="setS('sex','m')">Чоловік</button></div>
+    <div class="grid2" style="grid-template-columns:1fr 1fr 1fr">
+      <div><label class="f">Вік</label><input class="inp" type="number" inputmode="numeric" value="${s.age}" onchange="setS('age',+this.value)"></div>
+      <div><label class="f">Вага, кг</label><input class="inp" type="number" inputmode="decimal" value="${s.weight}" onchange="setS('weight',+this.value)"></div>
+      <div><label class="f">Зріст, см</label><input class="inp" type="number" inputmode="numeric" value="${s.height}" onchange="setS('height',+this.value)"></div></div>
+    <label class="f">Активність</label><select class="inp" onchange="setS('activity',+this.value)">
+      ${[[1.2,'Мінімальна'],[1.375,'Легка (1–3 тренування)'],[1.55,'Середня (3–5)'],[1.725,'Висока (6–7)']].map(([v, l]) => `<option value="${v}" ${+s.activity === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
+    <label class="f">Мета</label><select class="inp" onchange="setS('goal',+this.value)">
+      ${[[-0.15,'Схуднути'],[0,'Підтримувати вагу'],[0.1,'Набрати масу']].map(([v, l]) => `<option value="${v}" ${+s.goal === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
+    ${t ? `<div style="margin-top:12px;font-size:20px"><b>${t}</b> ккал на день</div><div class="note">Формула Міффліна–Сан Жеора, орієнтовно.</div>` : ''}
+  </div>
+  <div class="card"><h3>Меню</h3>
+    <div class="grid2"><div><label class="f">Людей у сімʼї</label><input class="inp" type="number" min="1" inputmode="numeric" value="${s.household}" onchange="setS('household',Math.max(1,+this.value))"></div>
+    <div><label class="f">Страв на день</label><select class="inp" onchange="setS('mealsPerDay',+this.value)">${[1,2,3].map(v => `<option ${s.mealsPerDay === v ? 'selected' : ''}>${v}</option>`).join('')}</select></div></div></div>
+  <div class="card"><h3>Резервна копія</h3>
+    <p class="small muted" style="margin-top:0">Дані зберігаються тільки на цьому пристрої. Робіть експорт, щоб перенести рецепти на інший телефон.</p>
+    <div class="btns" style="margin-bottom:0"><button class="btn sec" onclick="exportData()">⬇︎ Експорт</button>
+    <label class="btn sec" style="cursor:pointer">⬆︎ Імпорт<input type="file" accept=".json,application/json" hidden onchange="importData(this)"></label></div></div>
+  <div class="card small muted">Казанок · ${S.recipes.length} рецептів · <a href="#" onclick="event.preventDefault();if(confirm('Видалити ВСІ дані?')){localStorage.removeItem(KEY);location.reload()}">скинути все</a></div>`;
+}
+function setS(k, v) { S.settings[k] = v; save(); render(); }
+async function exportData() {
+  const blob = new Blob([JSON.stringify(S, null, 1)], { type: 'application/json' });
+  const name = `kazanok-${new Date().toISOString().slice(0, 10)}.json`;
+  const file = new File([blob], name, { type: 'application/json' });
+  if (navigator.canShare?.({ files: [file] })) { try { await navigator.share({ files: [file], title: name }); return; } catch (e) { if (e.name === 'AbortError') return; } }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+function importData(inp) {
+  const f = inp.files[0]; if (!f) return;
+  f.text().then(t => {
+    const d = JSON.parse(t); if (!Array.isArray(d.recipes)) throw 0;
+    const ids = new Set(S.recipes.map(r => r.id)); let n = 0;
+    d.recipes.forEach(r => { if (!ids.has(r.id)) { S.recipes.push(r); n++; } });
+    save(); render(); toast(`Імпортовано ${n} рецептів`);
+  }).catch(() => toast('Невірний файл'));
+}
+
+/* ====================== Режим готування ====================== */
+const cook = { id: null, i: 0, timers: [], tick: null, lock: null, ac: null };
+async function startCook(id) {
+  const r = R(id); if (!r.steps.length) { toast('У рецепті немає кроків'); return; }
+  Object.assign(cook, { id, i: 0 });
+  try { cook.ac = cook.ac || new (window.AudioContext || window.webkitAudioContext)(); cook.ac.resume(); } catch {}
+  await keepAwake();
+  const el = document.createElement('div'); el.className = 'cook'; el.id = 'cook'; document.body.appendChild(el);
+  renderCook();
+  cook.tick = setInterval(tickTimers, 500);
+}
+async function keepAwake() { try { cook.lock = await navigator.wakeLock?.request('screen'); } catch {} }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && document.getElementById('cook')) keepAwake(); });
+function stepTimes(text) {
+  const out = []; const re = /(\d+(?:[.,]\d+)?)(?:\s*[-–]\s*(\d+))?\s*(хв|хвилин\w*|min|год\w*|години|h\b|сек\w*|sec)/gi; let m;
+  while ((m = re.exec(text))) { const v = parseFloat(m[1].replace(',', '.')); const u = m[3].toLowerCase(); const sec = /^(год|h)/.test(u) ? v * 3600 : /^(сек|sec)/.test(u) ? v : v * 60; out.push({ sec, label: m[0] }); }
+  return out;
+}
+function renderCook() {
+  const r = R(cook.id), el = document.getElementById('cook'); if (!el) return;
+  const step = r.steps[cook.i], last = cook.i === r.steps.length - 1;
+  el.innerHTML = `<div class="row between"><button class="iconbtn" onclick="endCook()">✕</button><b style="flex:1;text-align:center;padding:0 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.title)}</b><button class="iconbtn" onclick="cookIngr()">📋</button></div>
+    <div class="prog"><i style="width:${(cook.i + 1) / r.steps.length * 100}%"></i></div>
+    <div class="stepno">Крок ${cook.i + 1} з ${r.steps.length}</div>
+    <div class="txt">${esc(step)}
+      <div class="timers" style="margin-top:18px">${stepTimes(step).map(t => `<button class="btn sec sm" onclick="addTimer(${t.sec},'${esc(t.label)}')">⏱ Таймер ${esc(t.label)}</button>`).join('')}</div></div>
+    <div class="timers" id="tlist"></div>
+    <div class="btns" style="margin-bottom:0"><button class="btn sec" ${cook.i ? '' : 'disabled style="opacity:.4"'} onclick="cook.i--;renderCook()">‹ Назад</button>
+      <button class="btn" onclick="${last ? 'endCook(true)' : 'cook.i++;renderCook()'}">${last ? 'Готово 🎉' : 'Далі ›'}</button></div>`;
+  tickTimers();
+}
+function cookIngr() {
+  const r = R(cook.id);
+  sheet(`<h3>Інгредієнти</h3><ul class="ing">${r.ingredients.map(i => `<li><span class="q">${esc(i.amount != null ? fmtNum(i.amount) + ' ' + i.unit : i.unit)}</span><span>${esc(i.name)}</span></li>`).join('')}</ul>`);
+  document.getElementById('ov').style.zIndex = 70;
+}
+function addTimer(sec, label) { cook.timers.push({ id: uid(), end: Date.now() + sec * 1000, label, rung: false }); tickTimers(); toast(`Таймер на ${label} запущено`); }
+function tickTimers() {
+  const box = document.getElementById('tlist'); if (!box) return;
+  const now = Date.now();
+  box.innerHTML = cook.timers.map(t => {
+    const left = Math.max(0, Math.round((t.end - now) / 1000));
+    if (!left && !t.rung) { t.rung = true; ring(); }
+    const mm = String(Math.floor(left / 60)).padStart(2, '0'), ss = String(left % 60).padStart(2, '0');
+    return `<div class="timer ${left ? '' : 'ring'}">⏱ ${left ? `${mm}:${ss}` : 'Час!'} <span class="small" style="opacity:.7">${esc(t.label)}</span>
+      <button onclick="cook.timers=cook.timers.filter(x=>x.id!=='${t.id}');tickTimers()" style="font-size:18px">×</button></div>`;
+  }).join('');
+}
+function ring() {
+  try { navigator.vibrate?.([400, 200, 400, 200, 400]); } catch {}
+  try {
+    const ac = cook.ac; if (!ac) return;
+    [0, 0.35, 0.7, 1.05].forEach(d => { const o = ac.createOscillator(), g = ac.createGain(); o.frequency.value = 880; g.gain.setValueAtTime(0.25, ac.currentTime + d); g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + d + 0.3); o.connect(g).connect(ac.destination); o.start(ac.currentTime + d); o.stop(ac.currentTime + d + 0.3); });
+  } catch {}
+}
+function endCook(done) {
+  if (cook.timers.some(t => t.end > Date.now()) && !confirm('Є активні таймери. Вийти?')) return;
+  clearInterval(cook.tick); cook.timers = []; try { cook.lock?.release(); } catch {} cook.lock = null;
+  document.getElementById('cook')?.remove(); if (done) toast('Смачного! 🍽️');
+}
+
+/* ====================== Старт ====================== */
+load(); render(); checkHash();
+window.addEventListener('hashchange', checkHash);
+if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
