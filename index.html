@@ -125,6 +125,13 @@ textarea.inp{min-height:120px;resize:vertical;line-height:1.5}
 .seg{display:flex;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:3px}
 .seg button{flex:1;padding:8px;border-radius:9px;font-size:14px}
 .seg button.on{background:var(--accent);color:#fff}
+.pbar{height:10px;border-radius:999px;background:var(--line);overflow:hidden;margin:12px 0 6px}
+.pbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),#f0a070);border-radius:999px;transition:width .4s ease}
+.prow{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted)}
+.lim{display:grid;grid-template-columns:1fr auto;gap:4px 10px;font-size:13px;align-items:center}
+.lim .lb{height:6px;border-radius:999px;background:var(--line);overflow:hidden;grid-column:1/-1;margin-bottom:6px}
+.lim .lb i{display:block;height:100%;background:var(--ok)}
+.lim .lb i.warn{background:#d9a23b}.lim .lb i.full{background:var(--danger)}
 .hint{background:var(--accent-soft);border-radius:12px;padding:12px 14px;font-size:14px;margin:10px 0}
 </style>
 </head>
@@ -495,7 +502,48 @@ function parseRecipeText(txt) {
 
 /* ---- Розпізнавання через Gemini (відео, фото, YouTube, текст) ---- */
 const GEM = 'https://generativelanguage.googleapis.com';
-const GEM_MODELS = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite'];
+const GEM_MODELS = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite'];
+// Безкоштовні ліміти (з AI Studio → Rate Limit). Скидаються опівночі за тихоокеанським часом.
+const GEM_LIMITS = {
+  'gemini-3.8-flash': { name: '3.8 Flash', rpm: 5, rpd: 20 },
+  'gemini-3.6-flash': { name: '3.6 Flash', rpm: 5, rpd: 20 },
+  'gemini-3.5-flash-lite': { name: '3.5 Flash-Lite', rpm: 15, rpd: 500 },
+  'gemini-3.1-flash-lite': { name: '3.1 Flash-Lite', rpm: 15, rpd: 500 },
+};
+const pacificDay = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(new Date());
+function usage() {
+  const d = pacificDay();
+  if (!S.usage || S.usage.day !== d) S.usage = { day: d, models: {}, recent: S.usage?.recent || [] };
+  S.usage.recent = (S.usage.recent || []).filter(t => Date.now() - t < 60000);
+  return S.usage;
+}
+function noteUse(m, exhausted) {
+  const u = usage();
+  u.models[m] = exhausted ? Math.max(u.models[m] || 0, GEM_LIMITS[m]?.rpd || 0) : (u.models[m] || 0) + 1;
+  if (!exhausted) u.recent.push(Date.now());
+  save();
+}
+const leftToday = m => Math.max(0, (GEM_LIMITS[m]?.rpd ?? 999) - (usage().models[m] || 0));
+function resetTime() {
+  // наступна північ за Лос-Анджелесом у місцевому часі
+  const now = new Date();
+  for (let h = 1; h <= 25; h++) {
+    const t = new Date(Math.ceil(now / 3600000) * 3600000 + (h - 1) * 3600000);
+    const hp = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', hour: 'numeric', hourCycle: 'h23' }).formatToParts(t).find(x => x.type === 'hour');
+    if (hp && parseInt(hp.value, 10) % 24 === 0)
+      return t.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
+  }
+  return '';
+}
+function limitsHTML(compact) {
+  const u = usage();
+  const rows = GEM_MODELS.map(m => {
+    const L = GEM_LIMITS[m], used = u.models[m] || 0, pct = Math.min(100, used / L.rpd * 100);
+    const cls = pct >= 100 ? 'full' : pct >= 70 ? 'warn' : '';
+    return `<span>${m === S.settings.gemModel ? '⭐ ' : ''}${L.name}</span><b>${Math.max(0, L.rpd - used)} з ${L.rpd}</b><div class="lb"><i class="${cls}" style="width:${100 - pct}%"></i></div>`;
+  }).join('');
+  return `<div class="lim">${rows}</div><div class="small muted">Залишок запитів на сьогодні на цьому пристрої. Оновлення о ${resetTime()}.${compact ? '' : ' Не більше 5 розпізнавань на хвилину. Точну статистику видно в <a href="https://aistudio.google.com/rate-limit" target="_blank" rel="noopener">AI Studio → Rate Limit</a>.'}</div>`;
+}
 const ai = { files: [] };
 function openAI() {
   if (!S.settings.gemKey) {
@@ -514,7 +562,9 @@ function openAI() {
     <label class="f">Опис під відео (не обовʼязково)</label>
     <textarea class="inp" id="ai_txt" rows="3" style="min-height:70px" placeholder="Можна вставити підпис з TikTok"></textarea>
     <div class="hint small">💡 TikTok: «Поділитися» → «Копіювати посилання», потім «Вставити» тут. Instagram не віддає відео за посиланням, тому збережіть Reels на телефон і виберіть з галереї.</div>
+    <div id="ai_prog" hidden><div class="pbar" id="ai_bar"><i></i></div><div class="prow"><span id="ai_pct">0%</span><span id="ai_time"></span></div></div>
     <div id="ai_status" class="small" style="margin:8px 0;min-height:18px"></div>
+    <details style="margin:6px 0 12px"><summary class="small muted">📊 Ліміти Gemini: ${leftToday(S.settings.gemModel)} з ${GEM_LIMITS[S.settings.gemModel]?.rpd ?? '?'} на сьогодні</summary><div style="margin-top:8px">${limitsHTML(true)}</div></details>
     <button class="btn" id="ai_go" onclick="aiRun()">Розпізнати</button>`);
 }
 function aiPick(inp) {
@@ -537,9 +587,11 @@ async function tiktokViaProxy(url) {
     if (files.length) return { files, caption };
   }
   if (!d.play) throw new Error('У цьому TikTok немає відео');
-  aiStatus('⬇️ Завантажую відео…');
-  const res = await fetch(media(d.play)); if (!res.ok) throw new Error('Відео не скачалося (HTTP ' + res.status + ')');
-  const b = await res.blob(); if (b.size < 10000) throw new Error('Відео не скачалося');
+  aiProgress(8, '⬇️ Завантажую відео з TikTok…');
+  let b;
+  try { b = await fetchBlob(media(d.play), {}, (f, got) => aiProgress(8 + f * 27, `⬇️ Завантажую відео… ${(got / 1048576).toFixed(1)} МБ`)); }
+  catch (e) { throw new Error('Відео не скачалося (' + e.message + ')'); }
+  if (b.size < 10000) throw new Error('Відео не скачалося');
   return { files: [new File([b], 'tiktok.mp4', { type: 'video/mp4' })], caption };
 }
 async function tiktokDirect(url) {
@@ -551,11 +603,34 @@ async function tiktokDirect(url) {
   return { files: [new File([b], 'tiktok.mp4', { type: 'video/mp4' })], caption: j.data.title || '' };
 }
 async function tiktokFetch(url) {
-  aiStatus('⬇️ Скачую відео з TikTok…');
+  aiProgress(3, '🔎 Шукаю відео в TikTok…');
   const errs = [];
   try { return await tiktokViaProxy(url); } catch (e) { errs.push(e.message || String(e)); }
   try { return await tiktokDirect(url); } catch (e) { errs.push(e.message || String(e)); }
   throw new Error('Не вдалося скачати відео з TikTok. Збережіть його й виберіть з галереї. [' + errs.join('; ').slice(0, 200) + ']');
+}
+let aiTimer = null, aiStart = 0;
+function aiProgress(pct, label) {
+  const bar = document.querySelector('#ai_bar i'); if (bar) bar.style.width = Math.max(0, Math.min(100, pct)) + '%';
+  const p = document.getElementById('ai_pct'); if (p) p.textContent = Math.round(pct) + '%';
+  if (label) aiStatus(label);
+}
+function aiThinking(from, to, label) {
+  clearInterval(aiTimer); const t0 = Date.now(); aiProgress(from, label);
+  aiTimer = setInterval(() => {
+    const t = (Date.now() - t0) / 1000;
+    aiProgress(from + (to - from) * (1 - Math.exp(-t / 22)));
+    const el = document.getElementById('ai_time'); if (el) el.textContent = Math.round((Date.now() - aiStart) / 1000) + ' с';
+  }, 300);
+}
+async function fetchBlob(url, opt, onPct) {
+  const res = await fetch(url, opt);
+  if (!res.ok) { const e = new Error('HTTP ' + res.status); e.status = res.status; throw e; }
+  const total = +res.headers.get('Content-Length') || 0;
+  if (!res.body || !total) return res.blob();
+  const reader = res.body.getReader(), chunks = []; let got = 0;
+  for (;;) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); got += value.length; onPct && onPct(got / total, got); }
+  return new Blob(chunks, { type: res.headers.get('Content-Type') || '' });
 }
 const aiStatus = t => { const e = document.getElementById('ai_status'); if (e) e.textContent = t; };
 function gemMime(f) {
@@ -613,20 +688,26 @@ const RECIPE_PROMPT = `Ти — кулінарний помічник. Тобі 
 - kcal, protein, fat, carbs: оцінка на 1 порцію.
 - Якщо в матеріалах немає рецепта, постав is_recipe=false.`;
 async function gemGenerate(parts) {
-  const models = [S.settings.gemModel, ...GEM_MODELS].filter((m, i, a) => m && a.indexOf(m) === i);
+  const all = [S.settings.gemModel, ...GEM_MODELS].filter((m, i, a) => m && a.indexOf(m) === i);
+  const models = all.filter(m => leftToday(m) > 0);
+  if (!models.length) { const e = new Error('limit'); e.status = 429; throw e; }
   let lastErr;
-  for (let round = 0; round < 3; round++) {
+  for (let round = 0; round < 2; round++) {
     for (const m of models) {
+      if (!leftToday(m)) continue;
       try {
-        if (round || m !== models[0]) aiStatus(`🔁 Gemini перевантажений, пробую ${m}…`);
+        if (round || m !== models[0]) aiStatus(`🔁 Пробую ${GEM_LIMITS[m]?.name || m}…`);
         const res = await gemFetch(`${GEM}/v1beta/models/${m}:generateContent`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ contents: [{ role: 'user', parts }], generationConfig: { temperature: 0.2, responseMimeType: 'application/json', responseSchema: RECIPE_SCHEMA } }) });
+        noteUse(m);
         const j = await res.json();
         const txt = (j.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('');
         if (!txt) throw new Error(j.promptFeedback?.blockReason ? 'Запит заблоковано' : 'Порожня відповідь');
         return JSON.parse(txt.replace(/^```json\s*|```$/g, ''));
       } catch (e) {
         lastErr = e;
+        if (e.status === 429) noteUse(m, /per.?day|daily|PerDay/i.test(e.message));
+        else if (e.status && e.status !== 404) noteUse(m);
         if (/api key|API_KEY/i.test(e.message)) throw e;          // поганий ключ — далі нема сенсу
         if (e.status && ![400, 404, 429, 500, 502, 503, 504].includes(e.status)) throw e;
       }
@@ -656,19 +737,22 @@ async function aiRun() {
     aiStatus(/instagram/i.test(url) ? '⚠️ Instagram не віддає відео за посиланням. Збережіть Reels на телефон і виберіть його вище.' : '⚠️ Вставте посилання на TikTok/YouTube або виберіть відео/фото.');
     return;
   }
-  const btn = document.getElementById('ai_go'); btn.disabled = true; btn.style.opacity = .5;
+  const btn = document.getElementById('ai_go'); btn.disabled = true; btn.style.opacity = .5; btn.textContent = 'Розпізнаю…';
+  document.getElementById('ai_prog').hidden = false; aiStart = Date.now(); aiProgress(1, '⏳ Починаю…');
+  const tick = setInterval(() => { const el = document.getElementById('ai_time'); if (el) el.textContent = Math.round((Date.now() - aiStart) / 1000) + ' с'; }, 500);
   try {
     const parts = []; let caption = txt;
     if (tt && !ai.files.length) { const t = await tiktokFetch(url); ai.files = t.files; if (t.caption && !caption) caption = t.caption; }
     for (const f of ai.files) {
       const mime = gemMime(f);
-      if (f.size > 18 * 1048576) { aiStatus(`⬆️ Завантажую ${f.name} (${(f.size / 1048576).toFixed(0)} МБ)…`); parts.push(await gemUpload(f, mime)); }
-      else { aiStatus('⬆️ Готую файл…'); parts.push({ inline_data: { mime_type: mime, data: await fileB64(f) } }); }
+      if (f.size > 18 * 1048576) { aiThinking(36, 48, `⬆️ Надсилаю ${f.name} у Gemini (${(f.size / 1048576).toFixed(0)} МБ)…`); parts.push(await gemUpload(f, mime)); }
+      else { aiProgress(40, '📦 Готую файл…'); parts.push({ inline_data: { mime_type: mime, data: await fileB64(f) } }); }
     }
     if (yt) parts.push({ file_data: { file_uri: url } });
     parts.push({ text: RECIPE_PROMPT + (caption ? `\n\nОпис від автора:\n${caption}` : '') + (url && !yt ? `\n\nПосилання на оригінал: ${url}` : '') });
-    aiStatus('🧠 Gemini дивиться й слухає… (до хвилини)');
+    aiThinking(50, 95, '🧠 Gemini дивиться й слухає відео… (зазвичай 20–60 с)');
     const r = await gemGenerate(parts);
+    clearInterval(aiTimer); aiProgress(97, '✍️ Заповнюю рецепт…');
     if (!r.is_recipe || !(r.ingredients || []).length) { aiStatus('🤷 Не знайшов рецепта в цьому відео.'); return; }
     let poster = '';
     const media = ai.files[0];
@@ -681,11 +765,13 @@ async function aiRun() {
       macros: r.kcal ? { kcal: Math.round(r.kcal), p: Math.round(r.protein || 0), f: Math.round(r.fat || 0), c: Math.round(r.carbs || 0) } : d.macros,
       photo: d.photo || poster
     });
-    closeSheet(); render(); toast('✨ Рецепт розпізнано, перевірте та збережіть');
+    aiProgress(100, '✅ Готово!'); await new Promise(r => setTimeout(r, 400));
+    closeSheet(); render(); toast(`✨ Рецепт розпізнано за ${Math.round((Date.now() - aiStart) / 1000)} с. Перевірте та збережіть`);
   } catch (e) {
     console.error(e);
-    aiStatus('❌ ' + (e.status === 429 ? 'Вичерпано безкоштовний ліміт Gemini, спробуйте трохи пізніше.' : /api key|API_KEY|permission/i.test(e.message) ? 'Ключ Gemini не підходить. Перевірте його в «Ще».' : /Failed to fetch|NetworkError|Load failed/i.test(e.message) ? 'Немає звʼязку з Gemini. Перевірте інтернет.' : e.message));
-  } finally { if (btn) { btn.disabled = false; btn.style.opacity = 1; } }
+    aiStatus('❌ ' + (e.status === 429 ? `Вичерпано безкоштовний ліміт Gemini. Оновиться о ${resetTime()}.` : /api key|API_KEY|permission/i.test(e.message) ? 'Ключ Gemini не підходить. Перевірте його в «Ще».' : /Failed to fetch|NetworkError|Load failed/i.test(e.message) ? 'Немає звʼязку з Gemini. Перевірте інтернет.' : e.message));
+    const bar = document.querySelector('#ai_bar i'); if (bar) bar.style.background = 'var(--danger)';
+  } finally { clearInterval(aiTimer); clearInterval(tick); if (btn) { btn.disabled = false; btn.style.opacity = 1; btn.textContent = 'Розпізнати'; } }
 }
 async function testKey() {
   const st = document.getElementById('key_st'); st.textContent = '⏳ Перевіряю…';
@@ -859,8 +945,9 @@ function vMore() {
   <div class="card"><h3>✨ Розпізнавання відео (Gemini)</h3>
     <p class="small muted" style="margin-top:0">Ключ безкоштовний: <a href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener">aistudio.google.com</a> → API Keys → скопіюйте ключ. Він зберігається тільки на цьому пристрої.</p>
     <input class="inp" type="password" autocomplete="off" placeholder="Вставте API-ключ" value="${esc(s.gemKey)}" onchange="S.settings.gemKey=this.value.trim();save()">
-    <label class="f">Модель</label><select class="inp" onchange="setS('gemModel',this.value)">${GEM_MODELS.map(m => `<option ${s.gemModel === m ? 'selected' : ''}>${m}</option>`).join('')}</select>
-    <div class="row between" style="margin-top:10px"><span id="key_st" class="small muted"></span><button class="btn sec sm" onclick="testKey()">Перевірити ключ</button></div></div>
+    <label class="f">Модель</label><select class="inp" onchange="setS('gemModel',this.value)">${GEM_MODELS.map(m => `<option value="${m}" ${s.gemModel === m ? 'selected' : ''}>${GEM_LIMITS[m].name} · ${GEM_LIMITS[m].rpd} на день</option>`).join('')}</select>
+    <div class="row between" style="margin-top:10px"><span id="key_st" class="small muted"></span><button class="btn sec sm" onclick="testKey()">Перевірити ключ</button></div>
+    <label class="f">📊 Ліміти на сьогодні</label>${limitsHTML(false)}</div>
   <div class="card"><h3>Резервна копія</h3>
     <p class="small muted" style="margin-top:0">Дані зберігаються тільки на цьому пристрої. Робіть експорт, щоб перенести рецепти на інший телефон.</p>
     <div class="btns" style="margin-bottom:0"><button class="btn sec" onclick="exportData()">⬇︎ Експорт</button>
