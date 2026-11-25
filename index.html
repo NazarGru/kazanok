@@ -615,16 +615,25 @@ const RECIPE_PROMPT = `Ти — кулінарний помічник. Тобі 
 async function gemGenerate(parts) {
   const models = [S.settings.gemModel, ...GEM_MODELS].filter((m, i, a) => m && a.indexOf(m) === i);
   let lastErr;
-  for (const m of models) {
-    try {
-      const res = await gemFetch(`${GEM}/v1beta/models/${m}:generateContent`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ role: 'user', parts }], generationConfig: { temperature: 0.2, responseMimeType: 'application/json', responseSchema: RECIPE_SCHEMA } }) });
-      const j = await res.json();
-      const txt = (j.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('');
-      if (!txt) throw new Error(j.promptFeedback?.blockReason ? 'Запит заблоковано' : 'Порожня відповідь');
-      return JSON.parse(txt.replace(/^```json\s*|```$/g, ''));
-    } catch (e) { lastErr = e; if (e.status !== 404 && e.status !== 400 || /key/i.test(e.message)) break; }
+  for (let round = 0; round < 3; round++) {
+    for (const m of models) {
+      try {
+        if (round || m !== models[0]) aiStatus(`🔁 Gemini перевантажений, пробую ${m}…`);
+        const res = await gemFetch(`${GEM}/v1beta/models/${m}:generateContent`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ role: 'user', parts }], generationConfig: { temperature: 0.2, responseMimeType: 'application/json', responseSchema: RECIPE_SCHEMA } }) });
+        const j = await res.json();
+        const txt = (j.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('');
+        if (!txt) throw new Error(j.promptFeedback?.blockReason ? 'Запит заблоковано' : 'Порожня відповідь');
+        return JSON.parse(txt.replace(/^```json\s*|```$/g, ''));
+      } catch (e) {
+        lastErr = e;
+        if (/api key|API_KEY/i.test(e.message)) throw e;          // поганий ключ — далі нема сенсу
+        if (e.status && ![400, 404, 429, 500, 502, 503, 504].includes(e.status)) throw e;
+      }
+    }
+    await new Promise(r => setTimeout(r, 4000 * (round + 1)));   // зачекати й спробувати знову
   }
+  if (lastErr && [500, 502, 503, 504].includes(lastErr.status)) throw new Error('Gemini зараз перевантажений. Спробуйте через кілька хвилин.');
   throw lastErr;
 }
 async function videoPoster(file) {
