@@ -117,7 +117,13 @@ textarea.inp{min-height:120px;resize:vertical;line-height:1.5}
 .cook .prog{height:4px;background:var(--line);border-radius:4px;overflow:hidden;margin:10px 0 0}
 .cook .prog i{display:block;height:100%;background:var(--accent);transition:width .25s}
 .cook .stepno{color:var(--accent);font-weight:700;margin-top:24px;font-size:15px}
-.cook .txt{font-size:24px;line-height:1.4;margin-top:10px;flex:1;overflow:auto}
+.cook .txt{font-size:24px;line-height:1.45;margin-top:10px;flex:1;overflow:auto;-webkit-overflow-scrolling:touch}
+.cook .need{display:flex;flex-wrap:wrap;gap:6px;margin-top:16px}
+.cook .need span{background:var(--accent-soft);color:var(--text);border-radius:999px;padding:6px 12px;font-size:15px}
+.cook .need b{color:var(--accent)}
+.cook .awake{font-size:12px;color:var(--muted);text-align:center;margin-top:6px}
+.cook .tbtns{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.timer.ring{background:var(--danger);color:#fff}
 .timers{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
 .timer{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 14px;font-variant-numeric:tabular-nums;font-weight:600;display:flex;align-items:center;gap:8px}
 .timer.ring{background:var(--accent);color:#fff;animation:pulse 1s infinite}
@@ -787,14 +793,26 @@ function stepParts(r, i, k) {
     used.add(hit.start);
     if (QUANT_BEFORE.test(text.slice(Math.max(0, hit.start - 14), hit.start))) continue;   // «половину молока», «200 г борошна» — не чіпаємо
     if (/^\s*\(?\s*\d/.test(text.slice(end, end + 4))) continue;                          // «борошно 200 г» — вже є
-    inserts.push({ at: end, amount: `${fmtNum(ing.amount * k)} ${ing.unit}`.trim() });
+    inserts.push({ at: end, amount: `${fmtNum(ing.amount * k)} ${ing.unit}`.trim(), name: ing.name });
   }
   inserts.sort((a, b) => a.at - b.at);
   const parts = []; let pos = 0;
-  for (const ins of inserts) { parts.push(text.slice(pos, ins.at)); parts.push({ amount: ins.amount }); pos = ins.at; }
+  for (const ins of inserts) { parts.push(text.slice(pos, ins.at)); parts.push({ amount: ins.amount, name: ins.name }); pos = ins.at; }
+  // «змішайте всі інгредієнти» — перелічуємо продукти цієї складової, які ще не згадувались
+  if (/(усі|всі|решту|інші)\s+(інгредієнт|продукт|компонент|складник)/i.test(text)) {
+    const pool = (g ? r.ingredients.filter(x => (x.group || '') === g) : r.ingredients).filter(x => x.amount != null || x.unit);
+    const mentioned = x => { const st = ingStems(x.name); return r.steps.slice(0, i).some((t, j) => (!g || stepGroupOf(r, j) === g) && (t.toLowerCase().match(wordRe) || []).some(w => st.some(s => w.startsWith(s)))) || done.has(x.name.toLowerCase()); };
+    let list = pool.filter(x => !mentioned(x)); if (!list.length) list = pool;
+    if (list.length && list.length <= 14) {
+      const tail = text.slice(pos).replace(/[.\s]+$/, ''); parts.push(tail + ': ');
+      list.forEach((x, n) => { parts.push((n ? ', ' : '') + x.name); if (x.amount != null) parts.push({ amount: `${fmtNum(x.amount * k)} ${x.unit}`.trim(), name: x.name }); });
+      parts.push('.'); return parts;
+    }
+  }
   parts.push(text.slice(pos));
   return parts;
 }
+function stepIngredients(r, i, k) { return stepParts(r, i, k).filter(p => typeof p !== 'string').map(p => ({ name: p.name || '', amount: p.amount })); }
 const stepHTML = (r, i, k) => stepParts(r, i, k).map(p => typeof p === 'string' ? esc(p) : ` <span class="qa">(${esc(p.amount)})</span>`).join('');
 const stepPlain = (r, i, k) => stepParts(r, i, k).map(p => typeof p === 'string' ? p : ` (${p.amount})`).join('');
 
@@ -1040,7 +1058,7 @@ const RECIPE_PROMPT = `Ти — кулінарний помічник. Тобі 
 - title: коротка зрозуміла назва страви.
 - ingredients: name — назва продукту в називному відмінку з малої літери (напр. «борошно», «куряче філе»); amount — число або null; unit — одне з: г, кг, мл, л, шт, ст.л., ч.л., склянка, зубчик, пучок, дрібка, або порожній рядок. Не пропускай спецій та олії.
 - Якщо кількості не названо, оціни їх за відео й напиши в notes, що кількості орієнтовні.
-- steps: короткі кроки в наказовому способі («Наріжте…»), з часом і температурою, якщо вони є. У кожному кроці НАЗИВАЙ усі інгредієнти, які в ньому використовуються, тими самими словами, що й у списку (напр. «Змішайте борошно, сіль і цукор, влийте пиво»). Кількості в кроках цифрами НЕ пиши — застосунок підставить їх сам з урахуванням порцій. Якщо береться лише частина продукту, так і пиши: «половину молока», «решту борошна».
+- steps: короткі кроки в наказовому способі («Наріжте…»), з часом і температурою, якщо вони є. У кожному кроці НАЗИВАЙ усі інгредієнти, які в ньому використовуються, тими самими словами, що й у списку (напр. «Змішайте борошно, сіль і цукор, влийте пиво»). Кількості в кроках цифрами НЕ пиши — застосунок підставить їх сам з урахуванням порцій. Якщо береться лише частина продукту, так і пиши: «половину молока», «решту борошна». НІКОЛИ не пиши «змішайте всі інгредієнти» — перелічи кожен продукт.
 - СПЕРШУ визнач is_complex: true, якщо страва має окремі складові (тісто + соус + начинка, корж + крем, маринад + мʼясо + гарнір тощо). Якщо is_complex=true — group ОБОВʼЯЗКОВО непорожній у кожного інгредієнта й кроку. Якщо false — group порожній.
 - СКЛАДОВІ: якщо страва складається з кількох частин (піца: Тісто, Соус, Начинка; торт: Корж, Крем, Прикраса; паста: Соус, Подача), заповни group — коротку назву складової з великої літери — для КОЖНОГО інгредієнта й кроку. Порядок груп — у логіці приготування (спершу тісто, потім соус, потім начинка і випікання). Однаковий продукт у двох складових вказуй окремо з кількістю для кожної. Кроки збирання й випікання — окрема група, напр. «Збирання та випікання». Для простих страв group — порожній рядок.
 - ДЖЕРЕЛА: якщо в описі під відео або в коментарях автора є кількості інгредієнтів — бери їх саме звідти. Кроки приготування бери з відео (що показують і кажуть), доповнюючи описом. Нічого не пропускай. Коментарі інших людей використовуй, тільки якщо там явно повний рецепт.
@@ -1420,63 +1438,100 @@ function importData(inp) {
 }
 
 /* ====================== Режим готування ====================== */
-const cook = { id: null, i: 0, timers: [], tick: null, lock: null, ac: null };
+const cook = { id: null, i: 0, timers: [], tick: null, lock: null, ac: null, vid: null, k: 1 };
+const TINY_VIDEO = 'data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAAMvbW9vdgAAAGxtdmhkAAAAAAAAAAAAAAAAAAAD6AAAB9AAAQAAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAll0cmFrAAAAXHRraGQAAAADAAAAAAAAAAAAAAABAAAAAAAAB9AAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAABAAAAAQAAAAAAAkZWR0cwAAABxlbHN0AAAAAAAAAAEAAAfQAAAAAAABAAAAAAHRbWRpYQAAACBtZGhkAAAAAAAAAAAAAAAAAABAAAAAgABVxAAAAAAALWhkbHIAAAAAAAAAAHZpZGUAAAAAAAAAAAAAAABWaWRlb0hhbmRsZXIAAAABfG1pbmYAAAAUdm1oZAAAAAEAAAAAAAAAAAAAACRkaW5mAAAAHGRyZWYAAAAAAAAAAQAAAAx1cmwgAAAAAQAAATxzdGJsAAAAvHN0c2QAAAAAAAAAAQAAAKxhdmMxAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAABAAEABIAAAASAAAAAAAAAABFUxhdmM2MC4zMS4xMDIgbGlieDI2NAAAAAAAAAAAAAAAGP//AAAAMmF2Y0MBZAAK/+EAF2dkAAqs2V7ARAAAAwAEAAADAAg8SJZYAQAEaO+8sP34+AAAAAAQcGFzcAAAAAEAAAABAAAAFGJ0cnQAAAAAAAALdAAAC3QAAAAYc3R0cwAAAAAAAAABAAAAAgAAQAAAAAAUc3RzcwAAAAAAAAABAAAAAQAAABxzdHNjAAAAAAAAAAEAAAABAAAAAgAAAAEAAAAcc3RzegAAAAAAAAAAAAAAAgAAAtEAAAAMAAAAFHN0Y28AAAAAAAAAAQAAA18AAABidWR0YQAAAFptZXRhAAAAAAAAACFoZGxyAAAAAAAAAABtZGlyYXBwbAAAAAAAAAAAAAAAAC1pbHN0AAAAJal0b28AAAAdZGF0YQAAAAEAAAAATGF2ZjYwLjE2LjEwMAAAAAhmcmVlAAAC5W1kYXQAAAK3BgX//7PcRem95tlIt5Ys2CDZI+7veDI2NCAtIGNvcmUgMTY0IHIzMTA4IDMxZTE5ZjkgLSBILjI2NC9NUEVHLTQgQVZDIGNvZGVjIC0gQ29weWxlZnQgMjAwMy0yMDIzIC0gaHR0cDovL3d3dy52aWRlb2xhbi5vcmcveDI2NC5odG1sIC0gb3B0aW9uczogY2FiYWM9MSByZWY9MSBkZWJsb2NrPTE6MDowIGFuYWx5c2U9MHgzOjB4MyBtZT1oZXggc3VibWU9MiBwc3k9MSBwc3lfcmQ9MS4wMDowLjAwIG1peGVkX3JlZj0wIG1lX3JhbmdlPTE2IGNocm9tYV9tZT0xIHRyZWxsaXM9MCA4eDhkY3Q9MSBjcW09MCBkZWFkem9uZT0yMSwxMSBmYXN0X3Bza2lwPTEgY2hyb21hX3FwX29mZnNldD0wIHRocmVhZHM9MSBsb29rYWhlYWRfdGhyZWFkcz0xIHNsaWNlZF90aHJlYWRzPTAgbnI9MCBkZWNpbWF0ZT0xIGludGVybGFjZWQ9MCBibHVyYXlfY29tcGF0PTAgc3RpdGNoYWJsZT0xIGNvbnN0cmFpbmVkX2ludHJhPTAgYmZyYW1lcz0zIGJfcHlyYW1pZD0yIGJfYWRhcHQ9MSBiX2JpYXM9MCBkaXJlY3Q9MSB3ZWlnaHRiPTEgb3Blbl9nb3A9MCB3ZWlnaHRwPTEga2V5aW50PTI1MCBrZXlpbnRfbWluPTEgc2NlbmVjdXQ9NDAgaW50cmFfcmVmcmVzaD0wIHJjX2xvb2thaGVhZD0xMCByYz1jcmYgbWJ0cmVlPTEgY3JmPTIzLjAgcWNvbXA9MC42MCBxcG1pbj0wIHFwbWF4PTY5IHFwc3RlcD00IGlwX3JhdGlvPTEuNDAgYXE9MToxLjAwAIAAAAASZYiEABn/7H/CVX/RApEebX/xAAAACEGaIRiDH/7w';
 async function startCook(id) {
-  const r = R(id); cook.k = ui.view === 'detail' && ui.id === id && ui.serv ? ui.serv / (r.servings || 1) : 1; if (!r.steps.length) { toast('У рецепті немає кроків'); return; }
+  const r = R(id); if (!r.steps.length) { toast('У рецепті немає кроків'); return; }
+  cook.k = ui.view === 'detail' && ui.id === id && ui.serv ? ui.serv / (r.servings || 1) : 1;
   Object.assign(cook, { id, i: 0 });
   try { cook.ac = cook.ac || new (window.AudioContext || window.webkitAudioContext)(); cook.ac.resume(); } catch {}
   await keepAwake();
   const el = document.createElement('div'); el.className = 'cook'; el.id = 'cook'; document.body.appendChild(el);
+  // гортання пальцем: вліво — далі, вправо — назад
+  let x0 = null, y0 = null;
+  el.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
+  el.addEventListener('touchend', e => { if (x0 == null) return; const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0; x0 = null;
+    if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.5) cookGo(dx < 0 ? 1 : -1); }, { passive: true });
   renderCook();
   cook.tick = setInterval(tickTimers, 500);
 }
-async function keepAwake() { try { cook.lock = await navigator.wakeLock?.request('screen'); } catch {} }
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && document.getElementById('cook')) keepAwake(); });
+function cookGo(d) { const r = R(cook.id); const n = cook.i + d; if (n < 0 || n >= r.steps.length) return; cook.i = n; renderCook(); }
+// Екран не гасне: Wake Lock API, а на старих iPhone — запасний трюк із беззвучним відео по колу
+async function keepAwake() {
+  cook.awake = '';
+  try { if (navigator.wakeLock) { cook.lock = await navigator.wakeLock.request('screen'); cook.awake = 'lock'; } } catch {}
+  if (!cook.awake) {
+    try {
+      if (!cook.vid) { const v = document.createElement('video'); v.src = TINY_VIDEO; v.muted = true; v.loop = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.setAttribute('muted', '');
+        v.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0.01;pointer-events:none;bottom:0;left:0'; document.body.appendChild(v); cook.vid = v; }
+      await cook.vid.play(); cook.awake = 'video';
+    } catch {}
+  }
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && document.getElementById('cook')) keepAwake().then(renderCookAwake); });
+function renderCookAwake() { const a = document.getElementById('awake'); if (a) a.textContent = cook.awake ? '☀️ Екран не згасне, поки відкритий режим готування' : '⚠️ Не вдалося заборонити згасання екрана — торкайтеся екрана час від часу'; }
 function stepTimes(text) {
-  const out = []; const re = /(\d+(?:[.,]\d+)?)(?:\s*[-–]\s*(\d+))?\s*(хв|хвилин\w*|min|год\w*|години|h\b|сек\w*|sec)/gi; let m;
-  while ((m = re.exec(text))) { const v = parseFloat(m[1].replace(',', '.')); const u = m[3].toLowerCase(); const sec = /^(год|h)/.test(u) ? v * 3600 : /^(сек|sec)/.test(u) ? v : v * 60; out.push({ sec, label: m[0] }); }
+  const out = []; const re = /(\d+(?:[.,]\d+)?)(?:\s*[-–]\s*(\d+))?\s*(хв|хвилин\S*|min|год\S*|години|h(?=\s|$|[.,])|сек\S*|sec)/gi; let m;
+  while ((m = re.exec(text))) { const v = parseFloat(((m[2] && m[2]) || m[1]).replace(',', '.')); const v1 = parseFloat(m[1].replace(',', '.')); const u = m[3].toLowerCase(); const mul = /^(год|h)/.test(u) ? 3600 : /^(сек|sec)/.test(u) ? 1 : 60; out.push({ sec: v1 * mul, label: m[2] ? `${m[1]} ${m[3]}` : m[0] }); if (m[2]) out.push({ sec: v * mul, label: `${m[2]} ${m[3]}` }); }
   return out;
 }
 function renderCook() {
   const r = R(cook.id), el = document.getElementById('cook'); if (!el) return;
-  const step = r.steps[cook.i], last = cook.i === r.steps.length - 1;
-  el.innerHTML = `<div class="row between"><button class="iconbtn" onclick="endCook()">✕</button><b style="flex:1;text-align:center;padding:0 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.title)}</b><button class="iconbtn" onclick="cookIngr()">📋</button></div>
+  const step = r.steps[cook.i], last = cook.i === r.steps.length - 1, g = stepGroupOf(r, cook.i);
+  const need = stepIngredients(r, cook.i, cook.k || 1).filter(x => x.amount);
+  el.innerHTML = `<div class="row between"><button class="iconbtn" onclick="endCook()" aria-label="Закрити">✕</button><b style="flex:1;text-align:center;padding:0 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.title)}</b><button class="iconbtn" onclick="cookIngr()" aria-label="Інгредієнти">📋</button></div>
     <div class="prog"><i style="width:${(cook.i + 1) / r.steps.length * 100}%"></i></div>
-    <div class="stepno">${stepGroupOf(r, cook.i) ? `${groupEmoji(stepGroupOf(r, cook.i))} ${esc(stepGroupOf(r, cook.i))} · ` : ''}Крок ${cook.i + 1} з ${r.steps.length}</div>
+    <div class="awake" id="awake"></div>
+    <div class="stepno" onclick="cookSteps()" style="cursor:pointer">${g ? `${groupEmoji(g)} ${esc(g)} · ` : ''}Крок ${cook.i + 1} з ${r.steps.length} ▾</div>
     <div class="txt">${stepHTML(r, cook.i, cook.k || 1)}
-      <div class="timers" style="margin-top:18px">${stepTimes(step).map(t => `<button class="btn sec sm" onclick="addTimer(${t.sec},'${esc(t.label)}')">⏱ Таймер ${esc(t.label)}</button>`).join('')}</div></div>
+      ${need.length ? `<div class="need">${need.map(x => `<span>${esc(x.name)} <b>${esc(x.amount)}</b></span>`).join('')}</div>` : ''}
+      <div class="tbtns">${stepTimes(step).map(t => `<button class="btn sec sm" onclick="addTimer(${t.sec},'${esc(t.label)}')">⏱ ${esc(t.label)}</button>`).join('')}
+        <button class="btn sec sm" onclick="timerSheet()">⏱ Свій таймер</button></div></div>
     <div class="timers" id="tlist"></div>
-    <div class="btns" style="margin-bottom:0"><button class="btn sec" ${cook.i ? '' : 'disabled style="opacity:.4"'} onclick="cook.i--;renderCook()">‹ Назад</button>
-      <button class="btn" onclick="${last ? 'endCook(true)' : 'cook.i++;renderCook()'}">${last ? 'Готово 🎉' : 'Далі ›'}</button></div>`;
-  tickTimers();
+    <div class="btns" style="margin-bottom:0"><button class="btn sec" ${cook.i ? '' : 'disabled style="opacity:.4"'} onclick="cookGo(-1)">‹ Назад</button>
+      <button class="btn" onclick="${last ? 'endCook(true)' : 'cookGo(1)'}">${last ? 'Готово 🎉' : 'Далі ›'}</button></div>`;
+  renderCookAwake(); tickTimers();
+}
+function cookSteps() {
+  const r = R(cook.id);
+  sheet(`<h3>Кроки</h3>${grouped(r.steps, (x, i) => stepGroupOf(r, i)).map(b => (b.group ? `<div class="grp">${groupEmoji(b.group)} ${esc(b.group)}</div>` : '') + b.items.map(({ x, i }) => `<div class="pr" style="cursor:pointer;${i === cook.i ? 'background:var(--accent-soft);border-radius:10px' : ''}" onclick="closeSheet();cook.i=${i};renderCook()"><div class="th">${i + 1}</div><div class="n small">${esc(x.slice(0, 90))}${x.length > 90 ? '…' : ''}</div></div>`).join('')).join('')}`);
+  document.getElementById('ov').style.zIndex = 70;
+}
+function timerSheet() {
+  const P = [1, 2, 3, 5, 7, 10, 12, 15, 20, 25, 30, 40, 45, 60, 90];
+  sheet(`<h3>⏱ Таймер</h3><div class="chips" style="flex-wrap:wrap">${P.map(m => `<button class="chip" onclick="closeSheet();addTimer(${m * 60},'${m < 60 ? m + ' хв' : m / 60 + ' год'}')">${m < 60 ? m + ' хв' : (m / 60) + ' год'}</button>`).join('')}</div>
+    <label class="f">Свій час</label><div class="addrow"><input class="inp" id="tmin" type="number" inputmode="numeric" placeholder="хвилин" min="1"><input class="inp" id="tlabel" placeholder="назва (необовʼязково)">
+    <button class="btn sm" onclick="const m=+document.getElementById('tmin').value;if(m>0){closeSheet();addTimer(m*60,document.getElementById('tlabel').value||m+' хв')}">Старт</button></div>`);
+  document.getElementById('ov').style.zIndex = 70;
 }
 function cookIngr() {
   const r = R(cook.id);
   sheet(`<h3>Інгредієнти</h3><ul class="ing">${grouped(r.ingredients, i => i.group).map(b => (b.group ? `<li class="grp">${groupEmoji(b.group)} ${esc(b.group)}</li>` : '') + b.items.map(({ x: i }) => `<li><span class="q">${esc(i.amount != null ? fmtNum(i.amount * (cook.k || 1)) + ' ' + i.unit : i.unit)}</span><span>${esc(i.name)}</span></li>`).join('')).join('')}</ul>`);
   document.getElementById('ov').style.zIndex = 70;
 }
-function addTimer(sec, label) { cook.timers.push({ id: uid(), end: Date.now() + sec * 1000, label, rung: false }); tickTimers(); toast(`Таймер на ${label} запущено`); }
+function addTimer(sec, label) { cook.timers.push({ id: uid(), end: Date.now() + sec * 1000, label, rung: 0 }); tickTimers(); toast(`⏱ Таймер ${label} запущено`); }
 function tickTimers() {
   const box = document.getElementById('tlist'); if (!box) return;
   const now = Date.now();
   box.innerHTML = cook.timers.map(t => {
     const left = Math.max(0, Math.round((t.end - now) / 1000));
-    if (!left && !t.rung) { t.rung = true; ring(); }
-    const mm = String(Math.floor(left / 60)).padStart(2, '0'), ss = String(left % 60).padStart(2, '0');
-    return `<div class="timer ${left ? '' : 'ring'}">⏱ ${left ? `${mm}:${ss}` : 'Час!'} <span class="small" style="opacity:.7">${esc(t.label)}</span>
-      <button onclick="cook.timers=cook.timers.filter(x=>x.id!=='${t.id}');tickTimers()" style="font-size:18px">×</button></div>`;
+    if (!left && now - (t.rungAt || 0) > 4000 && t.rung < 15) { t.rung++; t.rungAt = now; ring(); }   // дзвонить кожні 4 с, доки не вимкнете
+    const h = Math.floor(left / 3600), mm = String(Math.floor(left % 3600 / 60)).padStart(2, '0'), ss = String(left % 60).padStart(2, '0');
+    return `<div class="timer ${left ? '' : 'ring'}" ${left ? '' : `onclick="cook.timers=cook.timers.filter(x=>x.id!=='${t.id}');tickTimers()"`}>⏱ ${left ? `${h ? h + ':' : ''}${mm}:${ss}` : 'Час! Торкніться'} <span class="small" style="opacity:.75">${esc(t.label)}</span>
+      <button onclick="event.stopPropagation();cook.timers=cook.timers.filter(x=>x.id!=='${t.id}');tickTimers()" style="font-size:18px" aria-label="Прибрати таймер">×</button></div>`;
   }).join('');
 }
 function ring() {
   try { navigator.vibrate?.([400, 200, 400, 200, 400]); } catch {}
   try {
-    const ac = cook.ac; if (!ac) return;
-    [0, 0.35, 0.7, 1.05].forEach(d => { const o = ac.createOscillator(), g = ac.createGain(); o.frequency.value = 880; g.gain.setValueAtTime(0.25, ac.currentTime + d); g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + d + 0.3); o.connect(g).connect(ac.destination); o.start(ac.currentTime + d); o.stop(ac.currentTime + d + 0.3); });
+    const ac = cook.ac; if (!ac) return; ac.resume();
+    [0, 0.35, 0.7, 1.05].forEach(d => { const o = ac.createOscillator(), g = ac.createGain(); o.frequency.value = 880; g.gain.setValueAtTime(0.3, ac.currentTime + d); g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + d + 0.3); o.connect(g).connect(ac.destination); o.start(ac.currentTime + d); o.stop(ac.currentTime + d + 0.3); });
   } catch {}
 }
 function endCook(done) {
   if (cook.timers.some(t => t.end > Date.now()) && !confirm('Є активні таймери. Вийти?')) return;
   clearInterval(cook.tick); cook.timers = []; try { cook.lock?.release(); } catch {} cook.lock = null;
+  try { cook.vid?.pause(); } catch {}
   document.getElementById('cook')?.remove(); if (done) toast('Смачного! 🍽️');
 }
 
