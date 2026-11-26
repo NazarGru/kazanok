@@ -70,6 +70,7 @@ ol.steps{margin:0;padding-left:0;list-style:none;counter-reset:s}
 ol.steps li{counter-increment:s;display:flex;gap:12px;padding:8px 0}
 .grp{font-size:13px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.6px;margin:14px 0 2px;display:flex;align-items:center;gap:6px}
 .grp:first-child{margin-top:4px}
+.qa{color:var(--accent);font-weight:600;white-space:nowrap}
 ul.ing li.grp{border:0;padding:12px 0 2px}
 ol.steps li::before{content:counter(s);flex:none;width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-size:13px;font-weight:700}
 .btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px 16px;border-radius:14px;background:var(--accent);color:#fff;font-weight:600;font-size:16px}
@@ -585,7 +586,7 @@ function vDetail() {
     <ul class="ing">${grouped(r.ingredients, i => i.group).map(b => (b.group ? `<li class="grp">${groupEmoji(b.group)} ${esc(b.group)}</li>` : '') + b.items.map(({ x: i }) => `<li><span class="q">${i.amount != null ? fmtNum(i.amount * k) + ' ' + esc(i.unit) : esc(i.unit)}</span><span>${esc(i.name)}</span></li>`).join('')).join('')}</ul>
   </div>
   <div class="btns"><button class="btn" onclick="startCook('${r.id}')">👩‍🍳 Готувати</button><button class="btn sec" onclick="addToShop('${r.id}',${serv})">🛒 У покупки</button></div>
-  ${r.steps.length ? `<div class="card"><h3>Приготування</h3>${grouped(r.steps, (x, i) => stepGroupOf(r, i)).map(b => (b.group ? `<div class="grp">${groupEmoji(b.group)} ${esc(b.group)}</div>` : '') + `<ol class="steps">${b.items.map(({ x }) => `<li><span>${esc(x)}</span></li>`).join('')}</ol>`).join('')}</div>` : ''}
+  ${r.steps.length ? `<div class="card"><h3>Приготування</h3>${grouped(r.steps, (x, i) => stepGroupOf(r, i)).map(b => (b.group ? `<div class="grp">${groupEmoji(b.group)} ${esc(b.group)}</div>` : '') + `<ol class="steps">${b.items.map(({ i }) => `<li><span>${stepHTML(r, i, k)}</span></li>`).join('')}</ol>`).join('')}</div>` : ''}
   ${r.notes ? `<div class="card"><h3>Нотатки</h3><div style="white-space:pre-wrap">${esc(r.notes)}</div></div>` : ''}
   ${r.source ? `<div class="card small">Джерело: <a href="${esc(r.source)}" target="_blank" rel="noopener">${esc(r.source.replace(/^https?:\/\/(www\.)?/, '').slice(0, 60))}</a></div>` : ''}
   <button class="btn danger" style="margin-top:12px" onclick="delRecipe('${r.id}')">Видалити рецепт</button>`;
@@ -734,6 +735,48 @@ function linesWithGroups(items, text, groupOf) {
   items.forEach((x, i) => { const gg = groupOf(x, i) || ''; if (gg !== g) { if (gg) out.push('# ' + gg); g = gg; } out.push(text(x)); });
   return out.join('\n');
 }
+
+/* ---- Грамовки в кроках ---- */
+const IRREG = { 'сіль': ['сіль', 'солі', 'сіллю'], 'яйце': ['яйц', 'яєць', 'яйце'], 'яйця': ['яйц', 'яєць', 'яйце'], 'цукор': ['цукор', 'цукр'], 'мед': ['мед'], 'рис': ['рис'], 'сир': ['сир'], 'лід': ['лід', 'льод'], 'часник': ['часник'], 'перець': ['перець', 'перц'] };
+const QUANT_BEFORE = /(половин\S*|решт\S*|частин\S*|трохи|трішки|дещо|щіпк\S*|жмен\S*|залиш\S*|\d[\d.,\/]*\s*\S*)\s*$/i;
+const wordRe = /[\p{L}ʼ'’-]+/gu;
+function ingStems(name) {
+  const n = name.toLowerCase();
+  if (IRREG[n]) return IRREG[n];
+  const words = n.match(wordRe) || [];
+  const out = [];
+  for (const w of words) { if (IRREG[w]) out.push(...IRREG[w]); else if (w.length >= 6) out.push(w.slice(0, w.length - 2)); else if (w.length >= 4) out.push(w.slice(0, w.length - 1)); }
+  return out;
+}
+// повертає масив частин: рядки і {amount} — щоб і HTML, і простий текст будувати з одного місця
+function stepParts(r, i, k) {
+  const text = r.steps[i] || '', g = stepGroupOf(r, i);
+  const words = [...text.matchAll(wordRe)].map(m => ({ w: m[0].toLowerCase(), start: m.index, end: m.index + m[0].length }));
+  const used = new Set(), inserts = [];
+  const pools = g ? [r.ingredients.filter(x => (x.group || '') === g), r.ingredients.filter(x => (x.group || '') !== g)] : [r.ingredients];
+  const done = new Set();
+  for (const pool of pools) for (const ing of pool) {
+    if (ing.amount == null || done.has(ing.name.toLowerCase())) continue;
+    const stems = ingStems(ing.name); if (!stems.length) continue;
+    const hit = words.find(wd => !used.has(wd.start) && stems.some(st => wd.w.startsWith(st)));
+    if (!hit) continue;
+    done.add(ing.name.toLowerCase());
+    // кінець назви: якщо назва з кількох слів і наступні слова теж збігаються — вставляємо після них
+    let end = hit.end; const idx = words.indexOf(hit);
+    for (let j = idx + 1; j < words.length && j <= idx + 2; j++) { if (stems.some(st => words[j].w.startsWith(st)) && /^\s*$/.test(text.slice(end, words[j].start))) { end = words[j].end; used.add(words[j].start); } else break; }
+    used.add(hit.start);
+    if (QUANT_BEFORE.test(text.slice(Math.max(0, hit.start - 14), hit.start))) continue;   // «половину молока», «200 г борошна» — не чіпаємо
+    if (/^\s*\(?\s*\d/.test(text.slice(end, end + 4))) continue;                          // «борошно 200 г» — вже є
+    inserts.push({ at: end, amount: `${fmtNum(ing.amount * k)} ${ing.unit}`.trim() });
+  }
+  inserts.sort((a, b) => a.at - b.at);
+  const parts = []; let pos = 0;
+  for (const ins of inserts) { parts.push(text.slice(pos, ins.at)); parts.push({ amount: ins.amount }); pos = ins.at; }
+  parts.push(text.slice(pos));
+  return parts;
+}
+const stepHTML = (r, i, k) => stepParts(r, i, k).map(p => typeof p === 'string' ? esc(p) : ` <span class="qa">(${esc(p.amount)})</span>`).join('');
+const stepPlain = (r, i, k) => stepParts(r, i, k).map(p => typeof p === 'string' ? p : ` (${p.amount})`).join('');
 
 /* ---- Пошук дублікатів ---- */
 const normTitle = t => (t || '').toLowerCase().replace(/[\p{Extended_Pictographic}️]/gu, '').replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim();
@@ -977,7 +1020,7 @@ const RECIPE_PROMPT = `Ти — кулінарний помічник. Тобі 
 - title: коротка зрозуміла назва страви.
 - ingredients: name — назва продукту в називному відмінку з малої літери (напр. «борошно», «куряче філе»); amount — число або null; unit — одне з: г, кг, мл, л, шт, ст.л., ч.л., склянка, зубчик, пучок, дрібка, або порожній рядок. Не пропускай спецій та олії.
 - Якщо кількості не названо, оціни їх за відео й напиши в notes, що кількості орієнтовні.
-- steps: короткі кроки в наказовому способі («Наріжте…»), з часом і температурою, якщо вони є.
+- steps: короткі кроки в наказовому способі («Наріжте…»), з часом і температурою, якщо вони є. У кожному кроці НАЗИВАЙ усі інгредієнти, які в ньому використовуються, тими самими словами, що й у списку (напр. «Змішайте борошно, сіль і цукор, влийте пиво»). Кількості в кроках цифрами НЕ пиши — застосунок підставить їх сам з урахуванням порцій. Якщо береться лише частина продукту, так і пиши: «половину молока», «решту борошна».
 - СПЕРШУ визнач is_complex: true, якщо страва має окремі складові (тісто + соус + начинка, корж + крем, маринад + мʼясо + гарнір тощо). Якщо is_complex=true — group ОБОВʼЯЗКОВО непорожній у кожного інгредієнта й кроку. Якщо false — group порожній.
 - СКЛАДОВІ: якщо страва складається з кількох частин (піца: Тісто, Соус, Начинка; торт: Корж, Крем, Прикраса; паста: Соус, Подача), заповни group — коротку назву складової з великої літери — для КОЖНОГО інгредієнта й кроку. Порядок груп — у логіці приготування (спершу тісто, потім соус, потім начинка і випікання). Однаковий продукт у двох складових вказуй окремо з кількістю для кожної. Кроки збирання й випікання — окрема група, напр. «Збирання та випікання». Для простих страв group — порожній рядок.
 - ДЖЕРЕЛА: якщо в описі під відео або в коментарях автора є кількості інгредієнтів — бери їх саме звідти. Кроки приготування бери з відео (що показують і кажуть), доповнюючи описом. Нічого не пропускай. Коментарі інших людей використовуй, тільки якщо там явно повний рецепт.
@@ -1171,7 +1214,7 @@ async function shareRecipe(id) {
   const r = R(id);
   const { photo, id: _, fav, created, ...rest } = r;
   const link = location.origin + location.pathname + '#r=' + await pack(rest);
-  const text = `${r.title}\n\nІнгредієнти (${r.servings} ${porc(r.servings)}):\n${grouped(r.ingredients, i => i.group).map(b => (b.group ? `\n${b.group}:\n` : '') + b.items.map(({ x }) => '• ' + ingLine(x)).join('\n')).join('\n')}\n\nПриготування:\n${grouped(r.steps, (x, i) => stepGroupOf(r, i)).map(b => (b.group ? `\n${b.group}:\n` : '') + b.items.map(({ x }, n) => `${n + 1}. ${x}`).join('\n')).join('\n')}`;
+  const text = `${r.title}\n\nІнгредієнти (${r.servings} ${porc(r.servings)}):\n${grouped(r.ingredients, i => i.group).map(b => (b.group ? `\n${b.group}:\n` : '') + b.items.map(({ x }) => '• ' + ingLine(x)).join('\n')).join('\n')}\n\nПриготування:\n${grouped(r.steps, (x, i) => stepGroupOf(r, i)).map(b => (b.group ? `\n${b.group}:\n` : '') + b.items.map(({ i }, n) => `${n + 1}. ${stepPlain(r, i, 1)}`).join('\n')).join('\n')}`;
   sheet(`<h3>Поділитися «${esc(r.title)}»</h3>
     <button class="btn" onclick="doShare(${esc(JSON.stringify({ title: r.title, url: link }))})">🔗 Посилання на рецепт</button>
     <p class="small muted">Хто відкриє посилання, зможе зберегти рецепт у свій Казанок (без фото).</p>
@@ -1358,7 +1401,7 @@ function importData(inp) {
 /* ====================== Режим готування ====================== */
 const cook = { id: null, i: 0, timers: [], tick: null, lock: null, ac: null };
 async function startCook(id) {
-  const r = R(id); if (!r.steps.length) { toast('У рецепті немає кроків'); return; }
+  const r = R(id); cook.k = ui.view === 'detail' && ui.id === id && ui.serv ? ui.serv / (r.servings || 1) : 1; if (!r.steps.length) { toast('У рецепті немає кроків'); return; }
   Object.assign(cook, { id, i: 0 });
   try { cook.ac = cook.ac || new (window.AudioContext || window.webkitAudioContext)(); cook.ac.resume(); } catch {}
   await keepAwake();
@@ -1379,7 +1422,7 @@ function renderCook() {
   el.innerHTML = `<div class="row between"><button class="iconbtn" onclick="endCook()">✕</button><b style="flex:1;text-align:center;padding:0 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.title)}</b><button class="iconbtn" onclick="cookIngr()">📋</button></div>
     <div class="prog"><i style="width:${(cook.i + 1) / r.steps.length * 100}%"></i></div>
     <div class="stepno">${stepGroupOf(r, cook.i) ? `${groupEmoji(stepGroupOf(r, cook.i))} ${esc(stepGroupOf(r, cook.i))} · ` : ''}Крок ${cook.i + 1} з ${r.steps.length}</div>
-    <div class="txt">${esc(step)}
+    <div class="txt">${stepHTML(r, cook.i, cook.k || 1)}
       <div class="timers" style="margin-top:18px">${stepTimes(step).map(t => `<button class="btn sec sm" onclick="addTimer(${t.sec},'${esc(t.label)}')">⏱ Таймер ${esc(t.label)}</button>`).join('')}</div></div>
     <div class="timers" id="tlist"></div>
     <div class="btns" style="margin-bottom:0"><button class="btn sec" ${cook.i ? '' : 'disabled style="opacity:.4"'} onclick="cook.i--;renderCook()">‹ Назад</button>
@@ -1388,7 +1431,7 @@ function renderCook() {
 }
 function cookIngr() {
   const r = R(cook.id);
-  sheet(`<h3>Інгредієнти</h3><ul class="ing">${grouped(r.ingredients, i => i.group).map(b => (b.group ? `<li class="grp">${groupEmoji(b.group)} ${esc(b.group)}</li>` : '') + b.items.map(({ x: i }) => `<li><span class="q">${esc(i.amount != null ? fmtNum(i.amount) + ' ' + i.unit : i.unit)}</span><span>${esc(i.name)}</span></li>`).join('')).join('')}</ul>`);
+  sheet(`<h3>Інгредієнти</h3><ul class="ing">${grouped(r.ingredients, i => i.group).map(b => (b.group ? `<li class="grp">${groupEmoji(b.group)} ${esc(b.group)}</li>` : '') + b.items.map(({ x: i }) => `<li><span class="q">${esc(i.amount != null ? fmtNum(i.amount * (cook.k || 1)) + ' ' + i.unit : i.unit)}</span><span>${esc(i.name)}</span></li>`).join('')).join('')}</ul>`);
   document.getElementById('ov').style.zIndex = 70;
 }
 function addTimer(sec, label) { cook.timers.push({ id: uid(), end: Date.now() + sec * 1000, label, rung: false }); tickTimers(); toast(`Таймер на ${label} запущено`); }
