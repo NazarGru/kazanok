@@ -1,5 +1,5 @@
 export default {
-async fetch(req, env) {
+async fetch(req, env, ctx) {
 const ALLOWED = ['https://nazargru.github.io'];
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36';
 const origin = req.headers.get('Origin') || '';
@@ -34,6 +34,23 @@ const target = u.searchParams.get('u') || '';
 if (new URL(target).hostname !== 'generativelanguage.googleapis.com') return new Response('Forbidden host', { status: 403, headers: cors });
 const h = new Headers();
 for (const [k, v] of req.headers) { const kl = k.toLowerCase(); if (kl === 'x-goog-api-key' || kl === 'content-type' || kl.startsWith('x-goog-upload')) h.set(k, v); }
+if (req.method === 'POST' && target.includes(':generateContent')) {
+const buf = await req.arrayBuffer();
+const ts = new TransformStream();
+const w = ts.writable.getWriter();
+const enc = new TextEncoder();
+const work = (async () => {
+const ka = setInterval(() => { w.write(enc.encode(' ')).catch(() => {}); }, 8000);
+let out;
+try { const r = await fetch(target, { method: 'POST', headers: h, body: buf }); out = await r.text(); }
+catch (e) { out = JSON.stringify({ error: { code: 502, message: String(e) } }); }
+clearInterval(ka);
+await w.write(enc.encode(out));
+await w.close();
+})();
+ctx.waitUntil(work);
+return new Response(ts.readable, { headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+}
 const r = await fetch(target, { method: req.method, headers: h, body: req.method === 'GET' ? undefined : req.body });
 const oh = new Headers(cors);
 oh.set('Content-Type', r.headers.get('Content-Type') || 'application/json');

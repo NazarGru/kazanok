@@ -899,19 +899,25 @@ async function gemGenerate(parts) {
       if (!leftToday(m)) continue;
       try {
         if (round || m !== models[0]) aiStatus(`🔁 Пробую ${GEM_LIMITS[m]?.name || m}…`);
+        const gc = { temperature: 0.2, responseMimeType: 'application/json', responseSchema: RECIPE_SCHEMA };
+        if (!S.meta.noLowRes) gc.mediaResolution = 'MEDIA_RESOLUTION_LOW';   // менше токенів — швидше й економніше
         const res = await gemFetch(`${GEM}/v1beta/models/${m}:generateContent`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contents: [{ role: 'user', parts }], generationConfig: { temperature: 0.2, responseMimeType: 'application/json', responseSchema: RECIPE_SCHEMA } }) });
+          body: JSON.stringify({ contents: [{ role: 'user', parts }], generationConfig: gc }) });
+        const j = await res.json();   // посередник віддає 200 і помилку всередині JSON
+        if (j.error) {
+          if (j.error.code === 400 && /media.?resolution/i.test(j.error.message || '')) { S.meta.noLowRes = true; save(true); throw Object.assign(new Error('retry'), { status: 400 }); }
+          throw Object.assign(new Error(j.error.message || 'Gemini error'), { status: j.error.code });
+        }
         noteUse(m);
-        const j = await res.json();
         const txt = (j.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('');
         if (!txt) throw new Error(j.promptFeedback?.blockReason ? 'Запит заблоковано' : 'Порожня відповідь');
         return JSON.parse(txt.replace(/^```json\s*|```$/g, ''));
       } catch (e) {
         lastErr = e;
         if (e.status === 429) noteUse(m, /per.?day|daily|PerDay/i.test(e.message));
-        else if (e.status && e.status !== 404) noteUse(m);
+        else if (e.status === 400 && e.message !== 'retry') noteUse(m);   // перевантаження (5xx) ліміт не витрачає
         if (/api key|API_KEY/i.test(e.message)) throw e;          // поганий ключ — далі нема сенсу
-        if (e.status && ![400, 404, 429, 500, 502, 503, 504].includes(e.status)) throw e;
+        if (e.status && ![400, 404, 429, 500, 502, 503, 504, 524].includes(e.status)) throw e;
       }
     }
     await new Promise(r => setTimeout(r, 4000 * (round + 1)));   // зачекати й спробувати знову
