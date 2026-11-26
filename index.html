@@ -1018,40 +1018,41 @@ async function gemAttempt(m, parts, ctl) {
     throw e;
   } finally { clearTimeout(timer); }
 }
-// «Підстрахований» запит: якщо за 4 с немає відповіді (або прийшла помилка) — паралельно шлемо другий; беремо перший успішний.
-function gemHedged(m, parts, delay = 4000) {
+// «Перегони» моделей: запити стартують за розкладом; якщо всі запущені вже впали — наступний стартує одразу.
+// Перша успішна відповідь перемагає, решта скасовуються.
+function gemRace(parts, schedule) {
   return new Promise((resolve, reject) => {
-    let done = false, started = 0, failed = 0, lastErr; const ctls = [];
-    const start = () => {
-      if (done || started >= 2 || !leftToday(m)) return; started++;
+    let done = false, next = 0, running = 0, lastErr; const ctls = []; const timers = [];
+    const finish = (ok, val) => { if (done) return; done = true; timers.forEach(clearTimeout); ctls.forEach(c => c.abort('lost')); ok ? resolve(val) : reject(val); };
+    const launch = () => {
+      if (done) return;
+      while (next < schedule.length && !leftToday(schedule[next][0])) next++;
+      if (next >= schedule.length) { if (!running) finish(false, lastErr || Object.assign(new Error('limit'), { status: 429 })); return; }
+      const [m] = schedule[next++]; running++;
+      if (next > 1) aiStatus(`🔁 Gemini перевантажений — паралельно пробую ${GEM_LIMITS[m]?.name || m}…`);
       const c = new AbortController(); ctls.push(c);
-      gemAttempt(m, parts, c).then(r => { if (done) return; done = true; ctls.forEach(x => x !== c && x.abort('lost')); resolve(r); })
-        .catch(e => { if (done) return; lastErr = e; failed++; if (/api key|API_KEY/i.test(e.message)) { done = true; ctls.forEach(x => x.abort('lost')); return reject(e); }
-          if (failed >= started && started >= 2) { done = true; reject(lastErr); } else start(); });
+      gemAttempt(m, parts, c).then(r => finish(true, r)).catch(e => {
+        running--; lastErr = e;
+        if (/api key|API_KEY/i.test(e.message)) return finish(false, e);
+        if (e.status && ![400, 404, 429, 500, 502, 503, 504, 524, 'timeout', 'empty', 'lost'].includes(e.status)) return finish(false, e);
+        if (!running) launch();   // нікого не лишилось у грі — запускаємо наступного негайно
+      });
+      if (next < schedule.length) { const gap = schedule[next][1] - schedule[next - 1][1]; timers.push(setTimeout(launch, Math.max(0, gap))); }
     };
-    start(); setTimeout(start, delay);
+    launch();
   });
 }
 async function gemGenerate(parts) {
   const fast = S.settings.fastMode !== false;
-  const main = fast ? 'gemini-3.5-flash-lite' : S.settings.gemModel;
-  const rest = fast ? ['gemini-3.6-flash', 'gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite']
-                    : [...GEM_MODELS.filter(m => m !== main), main];
-  if (![main, ...rest].some(m => leftToday(m) > 0)) { const e = new Error('limit'); e.status = 429; throw e; }
-  let lastErr, prev = main;
-  if (leftToday(main)) {
-    try { return await gemHedged(main, parts); } catch (e) { lastErr = e; if (/api key|API_KEY/i.test(e.message)) throw e; }
+  // [модель, на якій секунді стартувати]
+  const schedule = fast
+    ? [['gemini-3.5-flash-lite', 0], ['gemini-3.5-flash-lite', 4000], ['gemini-3.1-flash-lite', 8000], ['gemini-3.6-flash', 12000], ['gemini-3.8-flash', 20000], ['gemini-3.5-flash-lite', 30000]]
+    : [[S.settings.gemModel, 0], [S.settings.gemModel, 5000], ...GEM_MODELS.filter(m => m !== S.settings.gemModel).map((m, i) => [m, 10000 + i * 6000])];
+  try { return await gemRace(parts, schedule); }
+  catch (e) {
+    if (e && [500, 502, 503, 504, 'timeout'].includes(e.status)) throw new Error('Gemini зараз перевантажений. Спробуйте через кілька хвилин.');
+    throw e;
   }
-  for (const m of rest) {
-    if (!leftToday(m)) continue;
-    if (lastErr && lastErr.status && ![400, 404, 429, 500, 502, 503, 504, 524, 'timeout', 'empty'].includes(lastErr.status)) throw lastErr;
-    aiStatus(`🔁 ${GEM_LIMITS[prev]?.name || prev}: ${lastErr?.status === 503 ? 'перевантажений' : lastErr?.status === 429 ? 'забагато запитів' : lastErr?.status === 'timeout' ? 'задовго думає' : 'помилка ' + (lastErr?.status || '')} — пробую ${GEM_LIMITS[m]?.name || m}…`);
-    prev = m;
-    try { return await gemAttempt(m, parts, new AbortController()); }
-    catch (e) { lastErr = e; if (/api key|API_KEY/i.test(e.message)) throw e; }
-  }
-  if (lastErr && [500, 502, 503, 504, 'timeout'].includes(lastErr.status)) throw new Error('Gemini зараз перевантажений. Спробуйте через кілька хвилин.');
-  throw lastErr;
 }
 async function videoPoster(file) {
   return new Promise(res => {
