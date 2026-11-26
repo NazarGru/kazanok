@@ -148,19 +148,32 @@ const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const DAYS = ['Понеділок','Вівторок','Середа','Четвер','Пʼятниця','Субота','Неділя'];
 const CAT_EMOJI = {'Сніданки':'🍳','Супи':'🍲','Основні страви':'🍛','Салати':'🥗','Випічка':'🥐','Десерти':'🍰','Напої':'🥤','Закуски':'🥪'};
-const emojiFor = r => CAT_EMOJI[r.category] || '🍽️';
+const DEFAULT_FOLDERS = [['Сніданки','🍳'],['Обід','🍛'],['Вечеря','🌙'],['Супи','🍲'],['Салати','🥗'],['Тісто й випічка','🥐'],['Десерти','🍰'],['Напої','🥤'],['Закуски','🥪']];
+const CAT_TO_FOLDER = {'Основні страви':'Обід','Випічка':'Тісто й випічка'};
+const FOLDER_EMOJI_GUESS = [[/снідан/i,'🍳'],[/обід/i,'🍛'],[/вечер/i,'🌙'],[/суп|борщ/i,'🍲'],[/салат/i,'🥗'],[/тіст|випіч|хліб|пиріг/i,'🥐'],[/десерт|солод|торт/i,'🍰'],[/напо|смузі|коктейл/i,'🥤'],[/закуск/i,'🥪'],[/мʼяс|м'яс|телят|ялов|свин/i,'🥩'],[/кур|птиц|індич/i,'🍗'],[/риб|морепр/i,'🐟'],[/овоч|спарж|зелен/i,'🥦'],[/паст|макарон/i,'🍝'],[/дит/i,'🧸'],[/свят/i,'🎉'],[/швидк/i,'⚡'],[/пп|дієт|здоров/i,'🥗']];
+const guessEmoji = name => (FOLDER_EMOJI_GUESS.find(([re]) => re.test(name)) || [0, '📁'])[1];
+const F = id => (S.folders || []).find(f => f.id === id);
+const recipeFolders = r => (r.folders || []).map(F).filter(Boolean);
+const emojiFor = r => recipeFolders(r)[0]?.emoji || CAT_EMOJI[r.category] || '🍽️';
+function folderByName(name, create) {
+  if (!name) return null;
+  const n = (CAT_TO_FOLDER[name] || name).trim().toLowerCase();
+  let f = S.folders.find(x => x.name.toLowerCase() === n);
+  if (!f && create) { f = { id: uid(), name: CAT_TO_FOLDER[name] || name.trim(), emoji: guessEmoji(name) }; S.folders.push(f); }
+  return f;
+}
 
 function seed() {
   return [
-    { id: uid(), title: 'Сирники з ваніллю', category: 'Сніданки', servings: 3, time: 25, fav: true, photo: '',
+    { id: uid(), title: 'Сирники з ваніллю', category: 'Сніданки', servings: 3, time: 25, fav: true, photo: '', seed: true,
       ingredients: P(['500 г кисломолочний сир','1 шт яйце','3 ст.л. борошно','2 ст.л. цукор','1 дрібка сіль','2 ст.л. олія']),
       steps: ['Розімніть сир виделкою, додайте яйце, цукор і сіль, перемішайте.','Всипте борошно й замісіть мʼяке тісто, яке не липне до рук.','Сформуйте невеликі шайби й обваляйте їх у борошні.','Смажте на розігрітій олії по 3 хв з кожного боку до золотистої скоринки.'],
       notes: 'Подавайте зі сметаною або ягідним варенням.', source: '', created: Date.now() },
-    { id: uid(), title: 'Червоний борщ', category: 'Супи', servings: 6, time: 90, fav: false, photo: '',
+    { id: uid(), title: 'Червоний борщ', category: 'Супи', servings: 6, time: 90, fav: false, photo: '', seed: true,
       ingredients: P(['500 г свинина','3 шт картопля','2 шт буряк','1 шт морква','1 шт цибуля','300 г капуста','2 ст.л. томатна паста','2 зубчик часник','1 ст.л. олія','сіль за смаком']),
       steps: ['Залийте мʼясо 3 л холодної води, доведіть до кипіння, зніміть піну і варіть 60 хв.','Наріжте картоплю кубиками й додайте в бульйон, варіть 10 хв.','Буряк і моркву натріть, цибулю наріжте. Обсмажте на олії 10 хв, додайте томатну пасту.','Додайте нашатковану капусту й засмажку в каструлю, варіть ще 10 хв.','Покладіть подрібнений часник, посоліть і дайте настоятися 15 хв.'],
       notes: '', source: '', created: Date.now() - 1000 },
-    { id: uid(), title: 'Вівсянка з бананом', category: 'Сніданки', servings: 1, time: 10, fav: false, photo: '',
+    { id: uid(), title: 'Вівсянка з бананом', category: 'Сніданки', servings: 1, time: 10, fav: false, photo: '', seed: true,
       ingredients: P(['60 г вівсяні пластівці','200 мл молоко','1 шт банан','1 ч.л. мед']),
       steps: ['Доведіть молоко до кипіння, всипте пластівці.','Варіть 5 хв, помішуючи.','Додайте нарізаний банан і мед.'],
       notes: '', source: '', created: Date.now() - 2000 }
@@ -174,10 +187,119 @@ function load() {
   if (!S) S = { recipes: seed(), shop: [], plan: Array.from({length: 7}, () => []), settings: {} };
   S.settings = Object.assign({ sex: 'f', age: 30, weight: 65, height: 168, activity: 1.375, goal: 0, household: 2, mealsPerDay: 2, gemKey: '', gemModel: 'gemini-3.8-flash' }, S.settings);
   if (!Array.isArray(S.plan) || S.plan.length !== 7) S.plan = Array.from({length: 7}, () => []);
+  if (!Array.isArray(S.folders)) {   // перехід зі старих категорій на папки
+    S.folders = DEFAULT_FOLDERS.map(([name, emoji]) => ({ id: uid(), name, emoji }));
+    S.recipes.forEach(r => { const f = folderByName(r.category, true); r.folders = f ? [f.id] : []; });
+  }
+  S.recipes.forEach(r => { if (!Array.isArray(r.folders)) r.folders = []; });
+  S.deleted = S.deleted || {}; S.stamps = S.stamps || {}; S.meta = S.meta || {};
 }
-function save() {
+let snap = null;   // знімок для визначення, що змінилося (для синхронізації)
+function takeSnap() {
+  snap = { r: new Map(S.recipes.map(r => [r.id, JSON.stringify({ ...r, updated: 0 })])), f: new Map(S.folders.map(f => [f.id, JSON.stringify({ ...f, updated: 0 })])),
+    shop: JSON.stringify(S.shop), plan: JSON.stringify(S.plan), settings: JSON.stringify(syncSettings()) };
+}
+const syncSettings = () => { const { gemKey, ...rest } = S.settings; return rest; };
+function stampChanges() {
+  if (!snap) return false;
+  const now = Date.now(); let changed = false;
+  for (const [list, key] of [[S.recipes, 'r'], [S.folders, 'f']]) {
+    const seen = new Set();
+    for (const x of list) { seen.add(x.id); const j = JSON.stringify({ ...x, updated: 0 }); if (snap[key].get(x.id) !== j) { x.updated = now; changed = true; } }
+    for (const id of snap[key].keys()) if (!seen.has(id)) { S.deleted[id] = now; changed = true; }
+  }
+  for (const k of ['shop', 'plan']) if (JSON.stringify(S[k]) !== snap[k]) { S.stamps[k] = now; changed = true; }
+  if (JSON.stringify(syncSettings()) !== snap.settings) { S.stamps.settings = now; changed = true; }
+  return changed;
+}
+function save(fromSync) {
+  const changed = fromSync ? false : stampChanges();
   try { localStorage.setItem(KEY, JSON.stringify(S)); }
-  catch (e) { toast('Памʼять заповнена: видаліть кілька фото або зробіть експорт'); }
+  catch (e) { toast('Памʼять телефона заповнена — рецепти збережено в хмарі'); }
+  takeSnap();
+  if (changed) scheduleSync();
+}
+
+/* ====================== Хмарна база (Cloudflare KV) ====================== */
+const sync = { state: 'idle', timer: null, busy: false, msg: '' };
+const newSyncId = () => { const a = new Uint8Array(24); crypto.getRandomValues(a); return b64u(a); };
+function scheduleSync(delay = 2500) { if (!S.meta.syncOff) { clearTimeout(sync.timer); sync.timer = setTimeout(syncNow, delay); } }
+function mergeById(local, remote, deleted) {
+  const m = new Map();
+  for (const x of [...remote, ...local]) { const cur = m.get(x.id); if (!cur || (x.updated || 0) >= (cur.updated || 0)) m.set(x.id, x); }
+  return [...m.values()].filter(x => !(deleted[x.id] && deleted[x.id] >= (x.updated || 0)));
+}
+function mergeState(remote) {
+  if (!remote) return;
+  const del = { ...(remote.deleted || {}) };
+  for (const [id, t] of Object.entries(S.deleted)) del[id] = Math.max(del[id] || 0, t);
+  const cutoff = Date.now() - 120 * 864e5; for (const id in del) if (del[id] < cutoff) delete del[id];
+  S.deleted = del;
+  S.recipes = mergeById(S.recipes, remote.recipes || [], del);
+  S.folders = mergeById(S.folders, remote.folders || [], del);
+  // однакові назви папок з різних пристроїв → одна папка
+  const byName = new Map(), remap = {};
+  [...S.folders].sort((a, b) => a.id < b.id ? -1 : 1).forEach(f => { const k = f.name.trim().toLowerCase(); if (byName.has(k)) remap[f.id] = byName.get(k).id; else byName.set(k, f); });
+  if (Object.keys(remap).length) { S.folders = S.folders.filter(f => !remap[f.id]); S.recipes.forEach(r => r.folders = [...new Set((r.folders || []).map(id => remap[id] || id))]); }
+  const rs = remote.stamps || {};
+  for (const k of ['shop', 'plan']) if ((rs[k] || 0) > (S.stamps[k] || 0) && remote[k]) { S[k] = remote[k]; S.stamps[k] = rs[k]; }
+  if ((rs.settings || 0) > (S.stamps.settings || 0) && remote.settings) { S.settings = { ...S.settings, ...remote.settings, gemKey: S.settings.gemKey }; S.stamps.settings = rs.settings; }
+  const ids = new Set(S.recipes.map(r => r.id)); S.plan = S.plan.map(d => d.filter(id => ids.has(id)));
+  const fids = new Set(S.folders.map(f => f.id)); S.recipes.forEach(r => r.folders = (r.folders || []).filter(id => fids.has(id)));
+}
+async function syncNow(manual) {
+  if (sync.busy) { scheduleSync(1500); return; }
+  if (!S.meta.syncId) S.meta.syncId = newSyncId();
+  sync.busy = true; setSync('busy');
+  try {
+    const url = `${PROXY}/sync?id=${encodeURIComponent(S.meta.syncId)}`;
+    const res = await fetch(url, { cache: 'no-store' }); if (!res.ok) throw new Error('HTTP ' + res.status);
+    const remote = await res.json();
+    const before = JSON.stringify([S.recipes.length, S.folders.length]);
+    mergeState(remote);
+    const body = JSON.stringify({ v: 1, recipes: S.recipes, folders: S.folders, shop: S.shop, plan: S.plan, settings: syncSettings(), stamps: S.stamps, deleted: S.deleted, at: Date.now() });
+    const put = await fetch(url, { method: 'PUT', body, headers: { 'Content-Type': 'application/json' } });
+    if (!put.ok) throw new Error('HTTP ' + put.status + ' ' + (await put.text()).slice(0, 80));
+    S.meta.lastSync = Date.now(); save(true); setSync('ok');
+    if (JSON.stringify([S.recipes.length, S.folders.length]) !== before || manual) render();
+    if (manual) toast('☁️ Збережено в хмарі');
+  } catch (e) { sync.msg = e.message; setSync('err'); if (manual) toast('⚠️ Немає звʼязку з хмарою — дані збережено на телефоні'); }
+  finally { sync.busy = false; }
+}
+function setSync(st) { sync.state = st; const b = document.getElementById('syncb'); if (b) b.outerHTML = syncBadge(); }
+function syncBadge() {
+  if (S.meta.syncOff) return '';
+  const [i, t] = sync.state === 'busy' ? ['⏳', 'Синхронізація…'] : sync.state === 'err' ? ['⚠️', 'Хмара недоступна — дані на телефоні'] : S.meta.lastSync ? ['☁️', 'Збережено в хмарі ' + new Date(S.meta.lastSync).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })] : ['☁️', 'Ще не синхронізовано'];
+  return `<button id="syncb" class="iconbtn" title="${t}" onclick="toast('${t}');syncNow(true)">${i}</button>`;
+}
+function linkDevice() {
+  const code = (prompt('Вставте код синхронізації з іншого пристрою:') || '').trim();
+  if (!code) return;
+  if (!/^[A-Za-z0-9_-]{24,64}$/.test(code)) { toast('Код неправильний'); return; }
+  if (!confirm('Обʼєднати рецепти цього пристрою з тими, що в хмарі за цим кодом?')) return;
+  S.recipes = S.recipes.filter(r => !r.seed); S.meta.syncId = code; S.meta.lastSync = 0; save(true); syncNow(true);
+}
+async function copySyncCode() {
+  if (!S.meta.syncId) { S.meta.syncId = newSyncId(); save(true); }
+  try { await navigator.clipboard.writeText(S.meta.syncId); toast('Код скопійовано'); } catch { prompt('Скопіюйте код:', S.meta.syncId); }
+}
+async function listBackups() {
+  try {
+    const j = await (await fetch(`${PROXY}/backups?id=${encodeURIComponent(S.meta.syncId)}`, { cache: 'no-store' })).json();
+    const days = (j.days || []).sort().reverse();
+    sheet(`<h3>🗂 Резервні копії в хмарі</h3><p class="small muted" style="margin-top:0">Щодня зберігається знімок, кожен живе 30 днів. Відновлення додасть рецепти з копії до поточних (нічого не видалить).</p>
+      ${days.length ? days.map(d => `<div class="pr"><div class="n">📅 ${d}</div><button class="btn sec sm" onclick="restoreBackup('${d}')">Відновити</button></div>`).join('') : '<p>Поки що копій немає — перша зʼявиться після синхронізації.</p>'}`);
+  } catch { toast('Хмара недоступна'); }
+}
+async function restoreBackup(day) {
+  try {
+    const b = await (await fetch(`${PROXY}/backup?id=${encodeURIComponent(S.meta.syncId)}&day=${day}`, { cache: 'no-store' })).json();
+    if (!b || !b.recipes) throw 0;
+    const ids = new Set(S.recipes.map(r => r.id)); let n = 0;
+    b.recipes.forEach(r => { if (!ids.has(r.id)) { delete S.deleted[r.id]; S.recipes.push(r); n++; } });
+    const fids = new Set(S.folders.map(f => f.id)); (b.folders || []).forEach(f => { if (!fids.has(f.id)) { delete S.deleted[f.id]; S.folders.push(f); } });
+    save(); closeSheet(); render(); toast(`Відновлено ${n} рецептів з ${day}`);
+  } catch { toast('Не вдалося відновити'); }
 }
 
 /* ====================== Інгредієнти ====================== */
@@ -301,7 +423,7 @@ function shopCat(name) {
 }
 
 /* ====================== Стан інтерфейсу ====================== */
-const ui = { tab: 'recipes', view: 'list', id: null, q: '', cat: 'Усі', serv: null, draft: null, stack: [] };
+const ui = { tab: 'recipes', view: 'list', id: null, q: '', cat: 'all', mode: 'all', fq: '', serv: null, draft: null, stack: [] };
 function go(tab, view = 'list', id = null, push = true) {
   if (push) ui.stack.push({ tab: ui.tab, view: ui.view, id: ui.id });
   Object.assign(ui, { tab, view, id, serv: null });
@@ -327,13 +449,15 @@ function closeSheet() { document.getElementById('ov')?.remove(); }
 /* ====================== Рендер ====================== */
 function render() {
   const a = document.getElementById('app');
-  const v = ui.tab === 'recipes' ? (ui.view === 'detail' ? vDetail() : ui.view === 'edit' ? vEdit() : vList())
+  const v = ui.tab === 'recipes' ? (ui.view === 'detail' ? vDetail() : ui.view === 'edit' ? vEdit() : ui.view === 'folder' ? vFolder() : vList())
           : ui.tab === 'plan' ? vPlan() : ui.tab === 'shop' ? vShop() : vMore();
   a.innerHTML = `<div class="wrap">${v}</div>`;
   renderTabs();
   if (ui.tab === 'recipes' && ui.view === 'list') {
-    const s = document.getElementById('q');
-    s?.addEventListener('input', e => { ui.q = e.target.value; document.getElementById('rgrid').innerHTML = gridHTML(); });
+    document.getElementById('q')?.addEventListener('input', e => { ui.q = e.target.value; const g = document.getElementById('rgrid'); if (g) g.innerHTML = ui.mode === 'folders' ? folderGridHTML() : gridHTML(); });
+  }
+  if (ui.tab === 'recipes' && ui.view === 'folder') {
+    document.getElementById('fq')?.addEventListener('input', e => { ui.fq = e.target.value; document.getElementById('rgrid').innerHTML = gridHTML(ui.id, ui.fq); });
   }
 }
 function renderTabs() {
@@ -343,28 +467,96 @@ function renderTabs() {
     `<button class="${ui.tab === t ? 'on' : ''}" onclick="ui.stack=[];go('${t}','list',null,false)"><span class="i">${i}</span>${l}${t === 'shop' && left ? `<span class="badge">${left}</span>` : ''}</button>`).join('');
 }
 
-/* ---- Список рецептів ---- */
+/* ---- Список рецептів і папки ---- */
+const matches = (r, q) => !q || [r.title, r.notes, ...r.ingredients.map(i => i.name), ...recipeFolders(r).map(f => f.name)].some(x => (x || '').toLowerCase().includes(q));
 function vList() {
-  const cats = ['Усі', '★ Улюблені', ...new Set(S.recipes.map(r => r.category).filter(Boolean))];
-  return `<div class="top"><h1>Рецепти</h1><button class="iconbtn primary" onclick="newRecipe()" aria-label="Новий рецепт">+</button></div>
-  <input id="q" class="search" type="search" placeholder="Пошук за назвою чи інгредієнтом" value="${esc(ui.q)}">
-  <div class="chips">${cats.map(c => `<button class="chip ${ui.cat === c ? 'on' : ''}" onclick="ui.cat='${esc(c)}';render()">${esc(c)}</button>`).join('')}</div>
-  <div class="grid" id="rgrid">${gridHTML()}</div>`;
+  const counts = id => S.recipes.filter(r => r.folders.includes(id)).length;
+  const chips = [['all', 'Усі'], ['fav', '★ Улюблені'], ...S.folders.filter(f => counts(f.id)).map(f => [f.id, `${f.emoji} ${f.name}`])];
+  return `<div class="top"><h1>Рецепти</h1>${syncBadge()}<button class="iconbtn primary" onclick="newRecipe()" aria-label="Новий рецепт">+</button></div>
+  <div class="seg" style="margin:4px 0 8px"><button class="${ui.mode === 'all' ? 'on' : ''}" onclick="ui.mode='all';render()">📖 Усі рецепти</button><button class="${ui.mode === 'folders' ? 'on' : ''}" onclick="ui.mode='folders';render()">📁 Папки</button></div>
+  <input id="q" class="search" type="search" placeholder="${ui.mode === 'folders' ? 'Пошук папок і рецептів' : 'Пошук: назва, інгредієнт, папка'}" value="${esc(ui.q)}">
+  ${ui.mode === 'folders' ? `<div class="grid" id="rgrid">${folderGridHTML()}</div>` : `
+  <div class="chips">${chips.map(([id, l]) => `<button class="chip ${ui.cat === id ? 'on' : ''}" onclick="ui.cat='${id}';render()">${esc(l)}</button>`).join('')}</div>
+  <div class="grid" id="rgrid">${gridHTML()}</div>`}`;
 }
-function gridHTML() {
+function folderGridHTML() {
   const q = ui.q.toLowerCase().trim();
-  const list = S.recipes.filter(r =>
-    (ui.cat === 'Усі' || (ui.cat === '★ Улюблені' ? r.fav : r.category === ui.cat)) &&
-    (!q || r.title.toLowerCase().includes(q) || r.ingredients.some(i => i.name.toLowerCase().includes(q)))
-  ).sort((a, b) => (b.fav - a.fav) || (b.created - a.created));
-  if (!list.length) return `<div class="empty" style="grid-column:1/-1"><div class="e">🥄</div>${S.recipes.length ? 'Нічого не знайдено' : 'Додайте перший рецепт кнопкою «+»'}</div>`;
+  const cards = S.folders.filter(f => !q || f.name.toLowerCase().includes(q) || S.recipes.some(r => r.folders.includes(f.id) && matches(r, q)))
+    .map(f => { const n = S.recipes.filter(r => r.folders.includes(f.id)).length;
+      const covers = S.recipes.filter(r => r.folders.includes(f.id) && r.photo).slice(0, 1);
+      return `<button class="rcard" onclick="ui.fq='';go('recipes','folder','${f.id}')"><div class="ph" style="${covers[0] ? `background-image:url(${covers[0].photo})` : ''}">${covers[0] ? '' : f.emoji}</div>
+        <div class="b"><div class="t">${f.emoji} ${esc(f.name)}</div><div class="m">${n} ${n === 1 ? 'рецепт' : [2,3,4].includes(n % 10) && ![12,13,14].includes(n % 100) ? 'рецепти' : 'рецептів'}</div></div></button>`; }).join('');
+  const found = q ? S.recipes.filter(r => matches(r, q)) : [];
+  return cards + `<button class="rcard" onclick="newFolder()"><div class="ph" style="background:var(--bg);border-bottom:1px dashed var(--line)">＋</div><div class="b"><div class="t">Нова папка</div></div></button>`
+    + (found.length ? `<div style="grid-column:1/-1;margin-top:8px" class="small muted">Рецепти: ${found.length}</div>` + cardsHTML(found) : '');
+}
+function cardsHTML(list) {
   return list.map(r => {
-    const n = nutrition(r);
+    const n = nutrition(r), fs = recipeFolders(r);
     return `<button class="rcard" onclick="go('recipes','detail','${r.id}')">
       <div class="ph" style="${r.photo ? `background-image:url(${r.photo})` : ''}">${r.photo ? '' : emojiFor(r)}</div>
       <div class="b"><div class="t">${r.fav ? '★ ' : ''}${esc(r.title)}</div>
-      <div class="m">${r.time ? `⏱ ${r.time} хв · ` : ''}${n.kcal ? `${n.kcal} ккал` : esc(r.category || '')}</div></div></button>`;
+      <div class="m">${r.time ? `⏱ ${r.time} хв · ` : ''}${n.kcal ? `${n.kcal} ккал` : ''}</div>
+      ${fs.length ? `<div class="m">${fs.map(f => f.emoji).join(' ')} ${esc(fs.map(f => f.name).join(', '))}</div>` : ''}</div></button>`;
   }).join('');
+}
+function gridHTML(folderId, query) {
+  const q = (query ?? ui.q).toLowerCase().trim();
+  const list = S.recipes.filter(r =>
+    (folderId ? r.folders.includes(folderId) : ui.cat === 'all' || (ui.cat === 'fav' ? r.fav : r.folders.includes(ui.cat))) && matches(r, q)
+  ).sort((a, b) => (b.fav - a.fav) || (b.created - a.created));
+  if (!list.length) return `<div class="empty" style="grid-column:1/-1"><div class="e">🥄</div>${folderId && !q ? 'У цій папці ще немає рецептів' : S.recipes.length ? 'Нічого не знайдено' : 'Додайте перший рецепт кнопкою «+»'}</div>`;
+  return cardsHTML(list);
+}
+/* ---- Папка ---- */
+function vFolder() {
+  const f = F(ui.id); if (!f) { ui.view = 'list'; return vList(); }
+  return `<div class="top"><button class="iconbtn" onclick="back()" aria-label="Назад">‹</button><h2>${f.emoji} ${esc(f.name)}</h2>
+    <button class="iconbtn" onclick="editFolder('${f.id}')" aria-label="Налаштувати папку">✎</button>
+    <button class="iconbtn primary" onclick="newRecipe('${f.id}')" aria-label="Новий рецепт">+</button></div>
+  <input id="fq" class="search" type="search" placeholder="Пошук у папці «${esc(f.name)}»" value="${esc(ui.fq)}">
+  <button class="btn sec sm" style="margin:0 0 10px" onclick="pickIntoFolder('${f.id}')">📥 Додати наявні рецепти</button>
+  <div class="grid" id="rgrid">${gridHTML(f.id, ui.fq)}</div>`;
+}
+function newFolder(then) {
+  const name = (prompt('Назва нової папки (напр. «Тісто», «Телятина», «Вечеря»):') || '').trim();
+  if (!name) return null;
+  if (S.folders.some(f => f.name.toLowerCase() === name.toLowerCase())) { toast('Така папка вже є'); return S.folders.find(f => f.name.toLowerCase() === name.toLowerCase()); }
+  const f = { id: uid(), name, emoji: guessEmoji(name) }; S.folders.push(f); save();
+  if (then) then(f); else render();
+  toast(`Папку «${name}» створено`); return f;
+}
+function editFolder(id) {
+  const f = F(id);
+  const EM = ['📁','🍳','🍛','🌙','🍲','🥗','🥐','🍰','🥤','🥪','🥩','🍗','🐟','🥦','🍝','🍕','🌮','🍜','🥞','🧁','🎉','⚡','❤️','🧸'];
+  sheet(`<h3>Папка</h3><label class="f">Назва</label><input class="inp" id="fn" value="${esc(f.name)}">
+    <label class="f">Значок</label><div class="chips" style="flex-wrap:wrap">${EM.map(e => `<button class="chip ${f.emoji === e ? 'on' : ''}" onclick="document.querySelectorAll('#ov .chip').forEach(c=>c.classList.remove('on'));this.classList.add('on');window._fe='${e}'">${e}</button>`).join('')}</div>
+    <div class="btns"><button class="btn danger" onclick="delFolder('${id}')">Видалити папку</button><button class="btn" onclick="saveFolder('${id}')">Зберегти</button></div>
+    <p class="small muted">Видалення папки не видаляє рецепти — вони лишаються в «Усі рецепти» та інших папках.</p>`);
+  window._fe = f.emoji;
+}
+function saveFolder(id) { const f = F(id); const n = document.getElementById('fn').value.trim(); if (n) f.name = n; f.emoji = window._fe || f.emoji; save(); closeSheet(); render(); }
+function delFolder(id) {
+  const f = F(id); if (!confirm(`Видалити папку «${f.name}»? Рецепти залишаться.`)) return;
+  S.folders = S.folders.filter(x => x.id !== id); S.recipes.forEach(r => r.folders = r.folders.filter(x => x !== id));
+  save(); closeSheet(); if (ui.view === 'folder') back(); else render();
+}
+function pickIntoFolder(fid) {
+  const f = F(fid);
+  sheet(`<h3>${f.emoji} Додати в «${esc(f.name)}»</h3><input class="search" placeholder="Пошук рецепта" oninput="document.querySelectorAll('#ov .pr').forEach(el=>el.hidden=!el.dataset.t.includes(this.value.toLowerCase()))">
+    ${[...S.recipes].sort((a, b) => a.title.localeCompare(b.title, 'uk')).map(r => `<label class="pr" data-t="${esc(r.title.toLowerCase())}" style="cursor:pointer"><input type="checkbox" ${r.folders.includes(fid) ? 'checked' : ''} onchange="toggleFolder('${r.id}','${fid}',this.checked)" style="width:20px;height:20px">
+      <div class="th" style="${r.photo ? `background-image:url(${r.photo})` : ''}">${r.photo ? '' : emojiFor(r)}</div><div class="n">${esc(r.title)}</div></label>`).join('')}
+    <button class="btn" style="margin-top:12px" onclick="closeSheet();render()">Готово</button>`);
+}
+function toggleFolder(rid, fid, on) {
+  const r = R(rid); r.folders = r.folders.filter(x => x !== fid); if (on) r.folders.push(fid); save();
+}
+function openFolderPicker(rid) {
+  const r = R(rid);
+  sheet(`<h3>📁 Папки рецепта</h3><p class="small muted" style="margin-top:0">Один рецепт може бути в кількох папках одночасно.</p>
+    <div class="chips" style="flex-wrap:wrap">${S.folders.map(f => `<button class="chip ${r.folders.includes(f.id) ? 'on' : ''}" onclick="toggleFolder('${rid}','${f.id}',!this.classList.contains('on'));this.classList.toggle('on')">${f.emoji} ${esc(f.name)}</button>`).join('')}
+    <button class="chip" onclick="newFolder(f=>{toggleFolder('${rid}',f.id,true);openFolderPicker('${rid}')})">＋ Нова папка</button></div>
+    <button class="btn" style="margin-top:14px" onclick="closeSheet();render()">Готово</button>`);
 }
 
 /* ---- Рецепт ---- */
@@ -378,7 +570,9 @@ function vDetail() {
     <button class="iconbtn" onclick="editRecipe('${r.id}')" aria-label="Редагувати">✎</button></div>
   <div class="hero" style="${r.photo ? `background-image:url(${r.photo})` : ''}">${r.photo ? '' : emojiFor(r)}</div>
   <h1 class="title">${esc(r.title)}</h1>
-  <div class="meta">${r.category ? `<span class="pill">${esc(r.category)}</span>` : ''}${r.time ? `<span class="pill">⏱ ${r.time} хв</span>` : ''}<span class="pill">${r.ingredients.length} інгр.</span></div>
+  <div class="meta">${recipeFolders(r).map(f => `<button class="pill" onclick="ui.fq='';go('recipes','folder','${f.id}')">${f.emoji} ${esc(f.name)}</button>`).join('')}
+    <button class="pill" style="background:var(--card);border:1px dashed var(--line);color:var(--muted)" onclick="openFolderPicker('${r.id}')">📁 ${r.folders.length ? 'Змінити' : 'Додати в папку'}</button>
+    ${r.time ? `<span class="pill">⏱ ${r.time} хв</span>` : ''}<span class="pill">${r.ingredients.length} інгр.</span></div>
   ${n.kcal ? `<div class="card"><div class="row between"><h3 style="margin:0">На 1 порцію</h3>${target ? `<span class="small muted">${Math.round(n.kcal / target * 100)}% денної норми</span>` : ''}</div>
     <div class="macros" style="margin-top:10px"><div><b>${n.kcal}</b><small>ккал</small></div><div><b>${n.p}</b><small>білки, г</small></div><div><b>${n.f}</b><small>жири, г</small></div><div><b>${n.c}</b><small>вуглев., г</small></div></div>
     ${n.manual ? '' : `<div class="note">≈ орієнтовно, враховано ${n.hit} з ${n.total} інгредієнтів</div>`}</div>` : ''}
@@ -403,11 +597,10 @@ function delRecipe(id) {
 }
 
 /* ---- Редагування ---- */
-function newRecipe() { ui.draft = { id: null, title: '', category: '', servings: 2, time: '', photo: '', ingredients: [], steps: [], notes: '', source: '', macros: null }; go('recipes', 'edit'); }
+function newRecipe(folderId) { ui.draft = { id: null, title: '', category: '', folders: folderId ? [folderId] : [], servings: 2, time: '', photo: '', ingredients: [], steps: [], notes: '', source: '', macros: null }; go('recipes', 'edit'); }
 function editRecipe(id) { ui.draft = JSON.parse(JSON.stringify(R(id))); go('recipes', 'edit', id); }
 function vEdit() {
   const d = ui.draft, m = d.macros || {};
-  const cats = [...new Set([...Object.keys(CAT_EMOJI), ...S.recipes.map(r => r.category).filter(Boolean)])];
   return `<div class="top"><button class="iconbtn" onclick="back()">✕</button><h2>${d.id ? 'Редагування' : 'Новий рецепт'}</h2><button class="btn sm" onclick="saveDraft()">Зберегти</button></div>
   ${d.id ? '' : `<button class="btn" onclick="openAI()">✨ Розпізнати з відео, фото чи посилання</button>
   <button class="btn sec" style="margin-top:8px" onclick="openImport()">📋 Вставити текст рецепта</button>`}
@@ -416,10 +609,11 @@ function vEdit() {
     <input type="file" accept="image/*" hidden onchange="pickPhoto(this)"></label>
   ${d.photo ? `<button class="small muted" style="margin-top:6px" onclick="syncDraft();ui.draft.photo='';render()">Прибрати фото</button>` : ''}
   <label class="f">Назва</label><input class="inp" id="e_title" value="${esc(d.title)}" placeholder="Напр., Паста з куркою">
-  <div class="grid2"><div><label class="f">Категорія</label><input class="inp" id="e_cat" list="cats" value="${esc(d.category)}" placeholder="Основні страви">
-    <datalist id="cats">${cats.map(c => `<option value="${esc(c)}">`).join('')}</datalist></div>
-    <div class="grid2"><div><label class="f">Порцій</label><input class="inp" id="e_serv" type="number" min="1" inputmode="numeric" value="${d.servings || 1}"></div>
-    <div><label class="f">Хвилин</label><input class="inp" id="e_time" type="number" min="0" inputmode="numeric" value="${d.time || ''}"></div></div></div>
+  <label class="f">Папки — можна вибрати кілька</label>
+  <div class="chips" id="e_folders" style="flex-wrap:wrap">${S.folders.map(f => `<button type="button" class="chip ${(d.folders || []).includes(f.id) ? 'on' : ''}" data-id="${f.id}" onclick="this.classList.toggle('on')">${f.emoji} ${esc(f.name)}</button>`).join('')}
+    <button type="button" class="chip" onclick="syncDraft();newFolder(f=>{ui.draft.folders.push(f.id);render()})">＋ Нова</button></div>
+  <div class="grid2"><div><label class="f">Порцій</label><input class="inp" id="e_serv" type="number" min="1" inputmode="numeric" value="${d.servings || 1}"></div>
+    <div><label class="f">Хвилин</label><input class="inp" id="e_time" type="number" min="0" inputmode="numeric" value="${d.time || ''}"></div></div>
   <label class="f">Інгредієнти — кожен з нового рядка, напр. «200 г борошно», «2 шт яйце», «сіль за смаком»</label>
   <textarea class="inp" id="e_ing" rows="8">${esc(d.ingredients.map(ingLine).join('\n'))}</textarea>
   <label class="f">Кроки — кожен з нового рядка. Час («10 хв») стане таймером</label>
@@ -432,7 +626,9 @@ function vEdit() {
 }
 function syncDraft() {
   const d = ui.draft, v = id => document.getElementById(id)?.value ?? '';
-  d.title = v('e_title').trim(); d.category = v('e_cat').trim();
+  d.title = v('e_title').trim();
+  const fe = document.getElementById('e_folders'); if (fe) d.folders = [...fe.querySelectorAll('.chip.on[data-id]')].map(c => c.dataset.id);
+  d.category = recipeFolders(d)[0]?.name || d.category || '';
   d.servings = Math.max(1, parseInt(v('e_serv')) || 1); d.time = parseInt(v('e_time')) || '';
   d.ingredients = v('e_ing').split('\n').map(s => s.trim()).filter(Boolean).map(parseIngredient);
   d.steps = v('e_steps').split('\n').map(s => s.replace(/^\s*\d+[.)]\s*/, '').trim()).filter(Boolean);
@@ -441,7 +637,7 @@ function syncDraft() {
   d.macros = num('m_k') ? { kcal: num('m_k'), p: num('m_p') || 0, f: num('m_f') || 0, c: num('m_c') || 0 } : null;
 }
 function saveDraft() {
-  syncDraft(); const d = ui.draft;
+  syncDraft(); const d = ui.draft; delete d.seed;
   if (!d.title) { toast('Вкажіть назву'); return; }
   if (d.id) { const i = S.recipes.findIndex(r => r.id === d.id); S.recipes[i] = d; }
   else { d.id = uid(); d.created = Date.now(); d.fav = false; S.recipes.push(d); }
@@ -555,13 +751,13 @@ function openAI() {
   sheet(`<h3>✨ Розпізнати рецепт</h3>
     <label class="f">Посилання на TikTok або YouTube</label>
     <div class="addrow" style="margin:0"><input class="inp" id="ai_url" type="url" placeholder="https://vm.tiktok.com/…" inputmode="url">
-      <button class="btn sec sm" onclick="aiPasteUrl()">Вставити</button></div>
+      <button class="btn sm" id="ai_go2" onclick="aiQuick()">✨ Розпізнати</button></div>
     <label class="f">…або відео чи фото з галереї (для Instagram)</label>
     <label class="btn sec" style="cursor:pointer">🎬 Вибрати відео / фото<input type="file" accept="video/*,image/*" multiple hidden onchange="aiPick(this)"></label>
     <div id="ai_files" class="small muted" style="margin-top:6px"></div>
     <label class="f">Опис під відео (не обовʼязково)</label>
     <textarea class="inp" id="ai_txt" rows="3" style="min-height:70px" placeholder="Можна вставити підпис з TikTok"></textarea>
-    <div class="hint small">💡 TikTok: «Поділитися» → «Копіювати посилання», потім «Вставити» тут. Instagram не віддає відео за посиланням, тому збережіть Reels на телефон і виберіть з галереї.</div>
+    <div class="hint small">💡 TikTok: «Поділитися» → «Копіювати посилання», потім «✨ Розпізнати» тут — посилання вставиться саме. Instagram не віддає відео за посиланням, тому збережіть Reels на телефон і виберіть з галереї.</div>
     <div id="ai_prog" hidden><div class="pbar" id="ai_bar"><i></i></div><div class="prow"><span id="ai_pct">0%</span><span id="ai_time"></span></div></div>
     <div id="ai_status" class="small" style="margin:8px 0;min-height:18px"></div>
     <details style="margin:6px 0 12px"><summary class="small muted">📊 Ліміти Gemini: ${leftToday(S.settings.gemModel)} з ${GEM_LIMITS[S.settings.gemModel]?.rpd ?? '?'} на сьогодні</summary><div style="margin-top:8px">${limitsHTML(true)}</div></details>
@@ -571,6 +767,12 @@ function aiPick(inp) {
   ai.files = [...inp.files];
   const mb = f => (f.size / 1048576).toFixed(1) + ' МБ';
   document.getElementById('ai_files').textContent = ai.files.map(f => `${f.type.startsWith('video') ? '🎬' : '🖼️'} ${f.name} · ${mb(f)}`).join('\n');
+}
+async function aiQuick() {
+  const el = document.getElementById('ai_url');
+  if (!el.value.trim()) { try { const t = await navigator.clipboard.readText(); const m = t.match(/https?:\/\/\S+/); if (m) el.value = m[0]; } catch {} }
+  if (!el.value.trim() && !ai.files.length) { el.focus(); aiStatus('Вставте посилання: утримуйте поле → «Вставити»'); return; }
+  aiRun();
 }
 async function aiPasteUrl() {
   try { const t = await navigator.clipboard.readText(); const m = t.match(/https?:\/\/\S+/); document.getElementById('ai_url').value = m ? m[0] : t.trim(); }
@@ -738,6 +940,7 @@ async function aiRun() {
     return;
   }
   const btn = document.getElementById('ai_go'); btn.disabled = true; btn.style.opacity = .5; btn.textContent = 'Розпізнаю…';
+  const b2 = document.getElementById('ai_go2'); if (b2) { b2.disabled = true; b2.style.opacity = .5; }
   document.getElementById('ai_prog').hidden = false; aiStart = Date.now(); aiProgress(1, '⏳ Починаю…');
   const tick = setInterval(() => { const el = document.getElementById('ai_time'); if (el) el.textContent = Math.round((Date.now() - aiStart) / 1000) + ' с'; }, 500);
   try {
@@ -759,7 +962,8 @@ async function aiRun() {
     if (media) poster = media.type.startsWith('image') ? await imagePoster(media) : await videoPoster(media);
     syncDraft(); const d = ui.draft;
     Object.assign(d, {
-      title: r.title || d.title, category: r.category || d.category, servings: r.servings || d.servings || 2, time: r.time || d.time,
+      title: r.title || d.title, category: r.category || d.category,
+      folders: (d.folders && d.folders.length) ? d.folders : [folderByName(r.category, true)?.id].filter(Boolean), servings: r.servings || d.servings || 2, time: r.time || d.time,
       ingredients: r.ingredients.map(i => ({ name: (i.name || '').trim(), amount: typeof i.amount === 'number' && i.amount > 0 ? i.amount : null, unit: normUnit(i.unit || '') || (typeof i.amount === 'number' ? 'шт' : '') })).filter(i => i.name),
       steps: (r.steps || []).filter(Boolean), notes: r.notes || d.notes, source: url || d.source,
       macros: r.kcal ? { kcal: Math.round(r.kcal), p: Math.round(r.protein || 0), f: Math.round(r.fat || 0), c: Math.round(r.carbs || 0) } : d.macros,
@@ -771,7 +975,7 @@ async function aiRun() {
     console.error(e);
     aiStatus('❌ ' + (e.status === 429 ? `Вичерпано безкоштовний ліміт Gemini. Оновиться о ${resetTime()}.` : /api key|API_KEY|permission/i.test(e.message) ? 'Ключ Gemini не підходить. Перевірте його в «Ще».' : /Failed to fetch|NetworkError|Load failed/i.test(e.message) ? 'Немає звʼязку з Gemini. Перевірте інтернет.' : e.message));
     const bar = document.querySelector('#ai_bar i'); if (bar) bar.style.background = 'var(--danger)';
-  } finally { clearInterval(aiTimer); clearInterval(tick); if (btn) { btn.disabled = false; btn.style.opacity = 1; btn.textContent = 'Розпізнати'; } }
+  } finally { clearInterval(aiTimer); clearInterval(tick); if (btn) { btn.disabled = false; btn.style.opacity = 1; btn.textContent = 'Розпізнати'; } if (b2) { b2.disabled = false; b2.style.opacity = 1; } }
 }
 async function testKey() {
   const st = document.getElementById('key_st'); st.textContent = '⏳ Перевіряю…';
@@ -824,6 +1028,7 @@ async function checkHash() {
 function acceptIncoming() {
   const r = window._incoming; closeSheet();
   const rec = { photo: '', notes: '', source: '', category: '', steps: [], ingredients: [], servings: 2, ...r, id: uid(), created: Date.now(), fav: false };
+  rec.folders = [folderByName(rec.category, true)?.id].filter(Boolean);
   S.recipes.push(rec); save(); go('recipes', 'detail', rec.id); toast('Рецепт збережено');
 }
 
@@ -904,7 +1109,8 @@ function planGenerate() {
   if (!S.recipes.length) { toast('Спершу додайте рецепти'); return; }
   if (S.plan.some(d => d.length) && !confirm('Замінити поточне меню?')) return;
   const n = S.settings.mealsPerDay || 2;
-  const breakfasts = S.recipes.filter(r => r.category === 'Сніданки'), mains = S.recipes.filter(r => !['Сніданки', 'Десерти', 'Напої'].includes(r.category));
+  const inF = (r, re) => recipeFolders(r).some(f => re.test(f.name)) || re.test(r.category || '');
+  const breakfasts = S.recipes.filter(r => inF(r, /снідан/i)), mains = S.recipes.filter(r => !inF(r, /снідан|десерт|напо/i));
   const bag = (arr) => { let pool = []; return () => { if (!pool.length) pool = [...arr].sort(() => Math.random() - .5); return pool.pop(); }; };
   const nb = bag(breakfasts.length ? breakfasts : S.recipes), nm = bag(mains.length ? mains : S.recipes);
   S.plan = S.plan.map(() => {
@@ -948,15 +1154,22 @@ function vMore() {
     <label class="f">Модель</label><select class="inp" onchange="setS('gemModel',this.value)">${GEM_MODELS.map(m => `<option value="${m}" ${s.gemModel === m ? 'selected' : ''}>${GEM_LIMITS[m].name} · ${GEM_LIMITS[m].rpd} на день</option>`).join('')}</select>
     <div class="row between" style="margin-top:10px"><span id="key_st" class="small muted"></span><button class="btn sec sm" onclick="testKey()">Перевірити ключ</button></div>
     <label class="f">📊 Ліміти на сьогодні</label>${limitsHTML(false)}</div>
-  <div class="card"><h3>Резервна копія</h3>
-    <p class="small muted" style="margin-top:0">Дані зберігаються тільки на цьому пристрої. Робіть експорт, щоб перенести рецепти на інший телефон.</p>
+  <div class="card"><h3>☁️ Хмарна база</h3>
+    <p class="small muted" style="margin-top:0">Рецепти, папки, меню й покупки автоматично зберігаються у вашій особистій базі на Cloudflare. Навіть якщо видалити додаток чи загубити телефон, усе відновиться за кодом синхронізації. Ключ Gemini в хмару не потрапляє.</p>
+    <div class="row between"><span class="small">${sync.state === 'err' ? '⚠️ Хмара недоступна: ' + esc(sync.msg) : S.meta.lastSync ? '✅ Остання синхронізація: ' + new Date(S.meta.lastSync).toLocaleString('uk-UA', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '⏳ Ще не синхронізовано'}</span>
+      <button class="btn sec sm" onclick="syncNow(true)">Синхронізувати</button></div>
+    <div class="btns" style="margin-bottom:0"><button class="btn sec" onclick="copySyncCode()">🔑 Скопіювати код</button><button class="btn sec" onclick="linkDevice()">📲 Ввести код</button></div>
+    <button class="btn sec" style="margin-top:10px" onclick="listBackups()">🗂 Щоденні копії (30 днів)</button>
+    <p class="small muted">Збережіть код синхронізації в нотатках або паролях — за ним можна відкрити рецепти на іншому телефоні чи компʼютері. Нікому його не надсилайте.</p></div>
+  <div class="card"><h3>Резервна копія у файл</h3>
+    <p class="small muted" style="margin-top:0">Додатково можна зберегти все в файл, наприклад у «Файли» чи iCloud Drive.</p>
     <div class="btns" style="margin-bottom:0"><button class="btn sec" onclick="exportData()">⬇︎ Експорт</button>
     <label class="btn sec" style="cursor:pointer">⬆︎ Імпорт<input type="file" accept=".json,application/json" hidden onchange="importData(this)"></label></div></div>
   <div class="card small muted">Казанок · ${S.recipes.length} рецептів · <a href="#" onclick="event.preventDefault();if(confirm('Видалити ВСІ дані?')){localStorage.removeItem(KEY);location.reload()}">скинути все</a></div>`;
 }
 function setS(k, v) { S.settings[k] = v; save(); render(); }
 async function exportData() {
-  const blob = new Blob([JSON.stringify({ ...S, settings: { ...S.settings, gemKey: '' } }, null, 1)], { type: 'application/json' });
+  const blob = new Blob([JSON.stringify({ ...S, settings: { ...S.settings, gemKey: '' }, meta: {} }, null, 1)], { type: 'application/json' });
   const name = `kazanok-${new Date().toISOString().slice(0, 10)}.json`;
   const file = new File([blob], name, { type: 'application/json' });
   if (navigator.canShare?.({ files: [file] })) { try { await navigator.share({ files: [file], title: name }); return; } catch (e) { if (e.name === 'AbortError') return; } }
@@ -967,7 +1180,8 @@ function importData(inp) {
   f.text().then(t => {
     const d = JSON.parse(t); if (!Array.isArray(d.recipes)) throw 0;
     const ids = new Set(S.recipes.map(r => r.id)); let n = 0;
-    d.recipes.forEach(r => { if (!ids.has(r.id)) { S.recipes.push(r); n++; } });
+    d.recipes.forEach(r => { if (!ids.has(r.id)) { if (!Array.isArray(r.folders)) r.folders = [folderByName(r.category, true)?.id].filter(Boolean); S.recipes.push(r); n++; } });
+    const fids = new Set(S.folders.map(f => f.id)); (d.folders || []).forEach(f => { if (!fids.has(f.id)) S.folders.push(f); });
     if (d.settings) { const k = S.settings.gemKey; S.settings = { ...S.settings, ...d.settings, gemKey: k || d.settings.gemKey || '' }; }
     save(); render(); toast(`Імпортовано ${n} рецептів`);
   }).catch(() => toast('Невірний файл'));
@@ -1035,7 +1249,10 @@ function endCook(done) {
 }
 
 /* ====================== Старт ====================== */
-load(); render(); checkHash();
+load(); takeSnap(); render(); checkHash();
+try { navigator.storage?.persist?.(); } catch {}
+if (!S.meta.syncOff) setTimeout(() => syncNow(), 800);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && !S.meta.syncOff) syncNow(); });
 window.addEventListener('hashchange', checkHash);
 if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
 </script>

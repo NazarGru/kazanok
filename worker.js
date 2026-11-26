@@ -1,15 +1,34 @@
 export default {
-async fetch(req) {
+async fetch(req, env) {
 const ALLOWED = ['https://nazargru.github.io'];
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36';
 const origin = req.headers.get('Origin') || '';
-const cors = { 'Access-Control-Allow-Origin': ALLOWED.includes(origin) ? origin : ALLOWED[0], 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'x-goog-api-key, content-type, x-goog-upload-protocol, x-goog-upload-command, x-goog-upload-header-content-length, x-goog-upload-header-content-type, x-goog-upload-offset', 'Access-Control-Expose-Headers': 'x-goog-upload-url', 'Access-Control-Max-Age': '86400', 'Vary': 'Origin' };
-const json = (o, s) => new Response(JSON.stringify(o), { status: s || 200, headers: { ...cors, 'Content-Type': 'application/json' } });
+const cors = { 'Access-Control-Allow-Origin': ALLOWED.includes(origin) ? origin : ALLOWED[0], 'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS', 'Access-Control-Allow-Headers': 'x-goog-api-key, content-type, x-goog-upload-protocol, x-goog-upload-command, x-goog-upload-header-content-length, x-goog-upload-header-content-type, x-goog-upload-offset', 'Access-Control-Expose-Headers': 'x-goog-upload-url', 'Access-Control-Max-Age': '86400', 'Vary': 'Origin' };
+const json = (o, s) => new Response(JSON.stringify(o), { status: s || 200, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
 if (req.method === 'OPTIONS') return new Response(null, { headers: cors });
 if (origin && !ALLOWED.includes(origin)) return new Response('Forbidden', { status: 403 });
 const u = new URL(req.url);
 const cookieOf = (res) => (res.headers.getSetCookie ? res.headers.getSetCookie() : []).map(c => c.split(';')[0]).join('; ');
 try {
+if (['/sync', '/backups', '/backup'].includes(u.pathname)) {
+const id = u.searchParams.get('id') || '';
+if (!/^[A-Za-z0-9_-]{24,64}$/.test(id)) return json({ error: 'bad id' }, 400);
+if (!env.DB) return json({ error: 'KV not bound' }, 500);
+const key = 'u:' + id;
+if (u.pathname === '/backups') { const l = await env.DB.list({ prefix: 'b:' + id + ':' }); return json({ days: l.keys.map(k => k.name.split(':').pop()) }); }
+if (u.pathname === '/backup') { const day = (u.searchParams.get('day') || '').replace(/[^0-9-]/g, ''); return new Response((await env.DB.get('b:' + id + ':' + day)) || 'null', { headers: { ...cors, 'Content-Type': 'application/json' } }); }
+if (req.method === 'GET') return new Response((await env.DB.get(key)) || 'null', { headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+if (req.method === 'PUT') {
+const body = await req.text();
+if (body.length > 24 * 1024 * 1024) return json({ error: 'too big' }, 413);
+JSON.parse(body);
+const day = new Date().toISOString().slice(0, 10);
+const old = await env.DB.getWithMetadata(key);
+if (old.value && (!old.metadata || old.metadata.bday !== day)) await env.DB.put('b:' + id + ':' + day, old.value, { expirationTtl: 30 * 86400 });
+await env.DB.put(key, body, { metadata: { bday: old.value ? day : '', at: Date.now() } });
+return json({ ok: true, at: Date.now() });
+}
+}
 if (u.pathname === '/g') {
 const target = u.searchParams.get('u') || '';
 if (new URL(target).hostname !== 'generativelanguage.googleapis.com') return new Response('Forbidden host', { status: 403, headers: cors });

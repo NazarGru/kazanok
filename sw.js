@@ -1,5 +1,5 @@
 // Офлайн-кеш. Після змін у коді збільшуйте номер версії.
-const CACHE = 'kazanok-v9';
+const CACHE = 'kazanok-v10';
 const ASSETS = [
   './',
   './index.html',
