@@ -282,12 +282,13 @@ function syncBadge() {
   const [i, t] = sync.state === 'busy' ? ['⏳', 'Синхронізація…'] : sync.state === 'err' ? ['⚠️', 'Хмара недоступна — дані на телефоні'] : S.meta.lastSync ? ['☁️', 'Збережено в хмарі ' + new Date(S.meta.lastSync).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })] : ['☁️', 'Ще не синхронізовано'];
   return `<button id="syncb" class="iconbtn" title="${t}" onclick="toast('${t}');syncNow(true)">${i}</button>`;
 }
-function linkDevice() {
+async function linkDevice() {
   const code = (prompt('Вставте код синхронізації з іншого пристрою:') || '').trim();
   if (!code) return;
   if (!/^[A-Za-z0-9_-]{24,64}$/.test(code)) { toast('Код неправильний'); return; }
   if (!confirm('Обʼєднати рецепти цього пристрою з тими, що в хмарі за цим кодом?')) return;
-  S.recipes = S.recipes.filter(r => !r.seed); S.meta.syncId = code; S.meta.lastSync = 0; save(true); syncNow(true);
+  S.recipes = S.recipes.filter(r => !r.seed); S.meta.syncId = code; S.meta.lastSync = 0; S.meta.hideLinkHint = true; save(true);
+  await syncNow(); render(); toast(`☁️ Підключено: ${S.recipes.length} рецептів`);
 }
 async function copySyncCode() {
   if (!S.meta.syncId) { S.meta.syncId = newSyncId(); save(true); }
@@ -500,6 +501,8 @@ function vList() {
   const counts = id => S.recipes.filter(r => r.folders.includes(id)).length;
   const chips = [['all', 'Усі'], ['fav', '★ Улюблені'], ...S.folders.filter(f => counts(f.id)).map(f => [f.id, `${f.emoji} ${f.name}`])];
   return `<div class="top"><h1>Рецепти</h1>${syncBadge()}<button class="iconbtn primary" onclick="newRecipe()" aria-label="Новий рецепт">+</button></div>
+  ${S.recipes.every(r => r.seed) && !S.meta.hideLinkHint ? `<div class="hint" style="margin:4px 0 10px">☁️ <b>Уже маєте рецепти на іншому пристрої чи в Safari?</b><br>Введіть код синхронізації — і вони зʼявляться тут.
+    <div class="btns" style="margin:10px 0 0"><button class="btn sm" onclick="linkDevice()">📲 Ввести код</button><button class="btn sec sm" onclick="S.meta.hideLinkHint=true;save(true);render()">Це новий початок</button></div></div>` : ''}
   <div class="seg" style="margin:4px 0 8px"><button class="${ui.mode === 'all' ? 'on' : ''}" onclick="ui.mode='all';render()">📖 Усі рецепти</button><button class="${ui.mode === 'folders' ? 'on' : ''}" onclick="ui.mode='folders';render()">📁 Папки</button></div>
   <input id="q" class="search" type="search" placeholder="${ui.mode === 'folders' ? 'Пошук папок і рецептів' : 'Пошук: назва, інгредієнт, папка'}" value="${esc(ui.q)}">
   ${ui.mode === 'folders' ? `<div class="grid" id="rgrid">${folderGridHTML()}</div>` : `
@@ -1436,7 +1439,7 @@ function vMore() {
   const s = S.settings, t = dailyTarget();
   const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
   return `<div class="top"><h1>Ще</h1></div>
-  ${standalone ? '' : `<div class="hint">📲 <b>Встановити на iPhone:</b> у Safari натисніть «Поділитися» ⤴︎ → «На екран „Додому“». Додаток працюватиме як звичайний і без інтернету.</div>`}
+  ${standalone ? '' : `<div class="hint">📲 <b>Встановити на iPhone:</b> у Safari натисніть «Поділитися» ⤴︎ → «На екран „Додому“». Додаток працюватиме як звичайний і без інтернету.<br><br>⚠️ Значок на екрані «Додому» має окреме сховище. Перед встановленням натисніть нижче «🔑 Скопіювати код», а в новому значку — «📲 Ввести код».</div>`}
   <div class="card"><h3>Денна норма калорій</h3>
     <div class="seg"><button class="${s.sex === 'f' ? 'on' : ''}" onclick="setS('sex','f')">Жінка</button><button class="${s.sex === 'm' ? 'on' : ''}" onclick="setS('sex','m')">Чоловік</button></div>
     <div class="grid2" style="grid-template-columns:1fr 1fr 1fr">
