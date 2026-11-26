@@ -594,9 +594,11 @@ function vDetail() {
   return `<div class="top"><button class="iconbtn" onclick="back()" aria-label="Назад">‹</button><h2></h2>
     <button class="iconbtn" onclick="toggleFav('${r.id}')">${r.fav ? '★' : '☆'}</button>
     <button class="iconbtn" onclick="shareRecipe('${r.id}')" aria-label="Поділитися">⤴︎</button>
+    <button class="iconbtn" onclick="variantSheet('${r.id}')" aria-label="Створити варіант">⧉</button>
     <button class="iconbtn" onclick="editRecipe('${r.id}')" aria-label="Редагувати">✎</button></div>
   <div class="hero" style="${r.photo ? `background-image:url(${r.photo})` : ''}">${r.photo ? '' : emojiFor(r)}</div>
   <h1 class="title">${esc(r.title)}</h1>
+  ${familyOf(r).length ? `<div class="chips" style="margin:-2px 0 8px;flex-wrap:wrap"><span class="small muted" style="align-self:center">⧉ Варіанти:</span>${familyOf(r).map(x => `<button class="chip" onclick="go('recipes','detail','${x.id}')">${esc(x.title)}</button>`).join('')}</div>` : ''}
   <div class="meta">${recipeFolders(r).map(f => `<button class="pill" onclick="ui.fq='';go('recipes','folder','${f.id}')">${f.emoji} ${esc(f.name)}</button>`).join('')}
     <button class="pill" style="background:var(--card);border:1px dashed var(--line);color:var(--muted)" onclick="openFolderPicker('${r.id}')">📁 ${r.folders.length ? 'Змінити' : 'Додати в папку'}</button>
     ${r.time ? `<span class="pill">⏱ ${r.time} хв</span>` : ''}<span class="pill">${r.ingredients.length} інгр.</span></div>
@@ -623,6 +625,53 @@ function delRecipe(id) {
   save(); ui.stack = []; go('recipes', 'list', null, false); toast('Рецепт видалено');
 }
 
+/* ---- Варіанти рецепта (копія зі зміною частини) ---- */
+const rootOf = r => r.variantOf && R(r.variantOf) ? r.variantOf : r.id;
+const familyOf = r => { const root = rootOf(r); return S.recipes.filter(x => x.id !== r.id && (x.id === root || x.variantOf === root)); };
+function variantSheet(id) {
+  const r = R(id), groups = [...new Set([...r.ingredients.map(i => i.group || ''), ...(r.stepGroups || [])].filter(Boolean))];
+  const hasKey = !!S.settings.gemKey;
+  sheet(`<h3>⧉ Новий варіант «${esc(r.title)}»</h3>
+    <label class="f">Назва варіанта</label><input class="inp" id="v_title" value="${esc(r.title)} — варіант">
+    ${groups.length ? `<label class="f">Що залишити як є</label><div class="chips" id="v_keep" style="flex-wrap:wrap">${groups.map(g => `<button type="button" class="chip on" data-g="${esc(g)}" onclick="this.classList.toggle('on')">${groupEmoji(g)} ${esc(g)}</button>`).join('')}</div>
+      <div class="small muted">Зняті складові буде очищено, щоб ви вписали свої.</div>` : ''}
+    <label class="f">${hasKey ? '✨ Що змінити — Gemini перепише сам (необовʼязково)' : 'Що змінити'}</label>
+    <textarea class="inp" id="v_change" rows="3" style="min-height:70px" placeholder="${groups.length ? 'напр. начинка: гриби й шинка замість пепероні' : 'напр. без цукру, замість курки — індичка'}" ${hasKey ? '' : 'disabled'}></textarea>
+    ${hasKey ? '' : '<div class="small muted">Щоб Gemini переписував рецепт сам, додайте ключ у «Ще».</div>'}
+    <div id="v_status" class="small" style="margin:8px 0;min-height:18px"></div>
+    <button class="btn" id="v_go" onclick="createVariant('${id}')">Створити варіант</button>`);
+}
+async function createVariant(id) {
+  const r = R(id), btn = document.getElementById('v_go');
+  const keep = new Set([...document.querySelectorAll('#v_keep .chip.on')].map(c => c.dataset.g));
+  const hasGroups = !!document.getElementById('v_keep');
+  const change = (document.getElementById('v_change')?.value || '').trim();
+  const d = JSON.parse(JSON.stringify(r));
+  Object.assign(d, { id: null, title: document.getElementById('v_title').value.trim() || r.title + ' — варіант', variantOf: rootOf(r), fav: false, videoId: '', created: Date.now() });
+  delete d.seed; delete d.updated;
+  if (hasGroups) {   // очищаємо зняті складові
+    d.ingredients = d.ingredients.filter(i => !i.group || keep.has(i.group));
+    if (d.stepGroups) { const st = [], sg = []; d.steps.forEach((x, i) => { const g = d.stepGroups[i] || ''; if (!g || keep.has(g)) { st.push(x); sg.push(g); } }); d.steps = st; d.stepGroups = sg; }
+    d.macros = null;
+  }
+  if (change && S.settings.gemKey) {
+    btn.disabled = true; btn.style.opacity = .5; const st = document.getElementById('v_status');
+    const t0 = Date.now(); const tick = setInterval(() => st.textContent = `✨ Gemini переписує рецепт… ${Math.round((Date.now() - t0) / 1000)} с`, 300);
+    try {
+      const src = { title: r.title, servings: r.servings, time: r.time, ingredients: r.ingredients.map(i => ({ group: i.group || '', name: i.name, amount: i.amount, unit: i.unit })),
+        steps: r.steps.map((x, i) => ({ group: stepGroupOf(r, i), text: x })), notes: r.notes || '' };
+      const prompt = RECIPE_PROMPT + `\n\nЦе ВАРІАНТ уже наявного рецепта. Ось оригінал (JSON):\n${JSON.stringify(src)}\n\nЗміни рецепт відповідно до запиту користувача: «${change}».\n`
+        + (hasGroups ? `Складові, які треба залишити БЕЗ ЗМІН (ті самі інгредієнти, кількості й кроки): ${[...keep].join(', ') || '—'}. Інші складові перероби відповідно до запиту.\n` : 'Усе, чого запит не стосується, залиш без змін.\n')
+        + `title: «${d.title}». Поверни ПОВНИЙ рецепт (усі складові й усі кроки), is_recipe=true.`;
+      const res = await gemGenerate([{ text: prompt }]);
+      const title = d.title; applyAI(d, res); d.title = title; d.folders = r.folders.slice();
+    } catch (e) { clearInterval(tick); st.textContent = '❌ ' + (e.status === 429 ? 'Ліміт Gemini вичерпано' : e.message) + '. Створюю звичайну копію…'; await new Promise(x => setTimeout(x, 1500)); }
+    clearInterval(tick);
+  }
+  closeSheet(); ui.draft = d; go('recipes', 'edit');
+  toast(change && S.settings.gemKey ? '✨ Варіант готовий — перевірте та збережіть' : '⧉ Копію створено — змініть потрібне та збережіть');
+}
+
 /* ---- Редагування ---- */
 function newRecipe(folderId) { ui.draft = { id: null, title: '', category: '', folders: folderId ? [folderId] : [], servings: 2, time: '', photo: '', ingredients: [], steps: [], notes: '', source: '', macros: null }; go('recipes', 'edit'); }
 function editRecipe(id) { ui.draft = JSON.parse(JSON.stringify(R(id))); go('recipes', 'edit', id); }
@@ -635,7 +684,7 @@ function vEdit() {
   <label class="hero" id="ph" style="cursor:pointer;aspect-ratio:16/7;font-size:15px;${d.photo ? `background-image:url(${d.photo})` : ''}">${d.photo ? '' : '<span class="muted">📷 Додати фото</span>'}
     <input type="file" accept="image/*" hidden onchange="pickPhoto(this)"></label>
   ${d.photo ? `<button class="small muted" style="margin-top:6px" onclick="syncDraft();ui.draft.photo='';render()">Прибрати фото</button>` : ''}
-  ${(() => { const sim = d.title && (findBySource(d.source, d.videoId, d.id) || (!d.id && findSimilar(d.title, d.id))); return sim ? `<div class="hint" style="margin-top:12px">♻️ Схожий рецепт уже є: <a href="#" onclick="event.preventDefault();ui.stack=[];go('recipes','detail','${sim.id}')">${esc(sim.title)}</a></div>` : ''; })()}
+  ${(() => { const sim = d.title && !d.variantOf && (findBySource(d.source, d.videoId, d.id) || (!d.id && findSimilar(d.title, d.id))); return sim ? `<div class="hint" style="margin-top:12px">♻️ Схожий рецепт уже є: <a href="#" onclick="event.preventDefault();ui.stack=[];go('recipes','detail','${sim.id}')">${esc(sim.title)}</a></div>` : ''; })()}
   <label class="f">Назва</label><input class="inp" id="e_title" value="${esc(d.title)}" placeholder="Напр., Паста з куркою">
   <label class="f">Папки — можна вибрати кілька</label>
   <div class="chips" id="e_folders" style="flex-wrap:wrap">${S.folders.map(f => `<button type="button" class="chip ${(d.folders || []).includes(f.id) ? 'on' : ''}" data-id="${f.id}" onclick="this.classList.toggle('on')">${f.emoji} ${esc(f.name)}</button>`).join('')}
@@ -672,8 +721,10 @@ function saveDraft() {
   if (!d.title) { toast('Вкажіть назву'); return; }
   if (!ui.dupOk) {
     const orig = d.id ? R(d.id) : null;
-    const dup = (d.source || d.videoId) ? findBySource(d.source, d.videoId, d.id) : null;
-    const sim = dup || ((!orig || normTitle(orig.title) !== normTitle(d.title)) ? findSimilar(d.title, d.id) : null);
+    const dupS = (d.source || d.videoId) ? findBySource(d.source, d.videoId, d.id) : null;
+    const dup = dupS && d.variantOf && (dupS.id === d.variantOf || dupS.variantOf === d.variantOf) ? null : dupS;
+    const simC = (!orig || normTitle(orig.title) !== normTitle(d.title)) ? findSimilar(d.title, d.id) : null;
+    const sim = dup || (simC && d.variantOf && (simC.id === d.variantOf || simC.variantOf === d.variantOf) ? null : simC);
     if (sim) {
       sheet(`<h3>♻️ Схожий рецепт уже є</h3><div class="pr"><div class="th" style="${sim.photo ? `background-image:url(${sim.photo})` : ''}">${sim.photo ? '' : emojiFor(sim)}</div><div class="n">${esc(sim.title)}<div class="k">${dup ? 'те саме посилання' : 'схожа назва'}</div></div></div>
         <div class="btns"><button class="btn sec" onclick="closeSheet();ui.stack=[];go('recipes','detail','${sim.id}')">Відкрити наявний</button><button class="btn" onclick="closeSheet();ui.dupOk=true;saveDraft()">Зберегти все одно</button></div>
@@ -1148,6 +1199,19 @@ async function videoPoster(file) {
 async function imagePoster(file) {
   return new Promise(res => { const img = new Image(), url = URL.createObjectURL(file); img.onload = () => { const sc = Math.min(1, 900 / Math.max(img.width, img.height)); const c = document.createElement('canvas'); c.width = img.width * sc; c.height = img.height * sc; c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url); res(c.toDataURL('image/jpeg', 0.72)); }; img.onerror = () => res(''); img.src = url; });
 }
+// переносить відповідь Gemini у чернетку рецепта
+function applyAI(d, r) {
+  Object.assign(d, {
+    title: r.title || d.title, category: r.category || d.category,
+    folders: (d.folders && d.folders.length) ? d.folders : [folderByName(r.category, true)?.id].filter(Boolean), servings: r.servings || d.servings || 2, time: r.time || d.time,
+    ingredients: (r.ingredients || []).map(i => ({ name: (i.name || '').trim(), amount: typeof i.amount === 'number' && i.amount > 0 ? i.amount : null, unit: normUnit(i.unit || '') || (typeof i.amount === 'number' ? 'шт' : ''), ...(i.group ? { group: i.group.trim() } : {}) })).filter(i => i.name),
+    steps: (r.steps || []).map(x => typeof x === 'string' ? x : x.text).filter(Boolean),
+    stepGroups: (() => { const g = (r.steps || []).filter(x => typeof x === 'string' ? x : x.text).map(x => (typeof x === 'string' ? '' : (x.group || '').trim())); return g.some(Boolean) ? g : undefined; })(),
+    notes: r.notes || d.notes,
+    macros: r.kcal ? { kcal: Math.round(r.kcal), p: Math.round(r.protein || 0), f: Math.round(r.fat || 0), c: Math.round(r.carbs || 0) } : d.macros,
+  });
+  return d;
+}
 async function aiRun() {
   const url = document.getElementById('ai_url').value.trim(), txt = document.getElementById('ai_txt').value.trim();
   const yt = /(?:youtube\.com|youtu\.be)\//i.test(url), tt = /tiktok\.com\//i.test(url);
@@ -1203,15 +1267,7 @@ async function aiRun() {
     const media = ai.files[0];
     if (media) poster = media.type.startsWith('image') ? await imagePoster(media) : await videoPoster(media);
     syncDraft(); const d = ui.draft;
-    Object.assign(d, {
-      title: r.title || d.title, category: r.category || d.category,
-      folders: (d.folders && d.folders.length) ? d.folders : [folderByName(r.category, true)?.id].filter(Boolean), servings: r.servings || d.servings || 2, time: r.time || d.time,
-      ingredients: r.ingredients.map(i => ({ name: (i.name || '').trim(), amount: typeof i.amount === 'number' && i.amount > 0 ? i.amount : null, unit: normUnit(i.unit || '') || (typeof i.amount === 'number' ? 'шт' : ''), ...(i.group ? { group: i.group.trim() } : {}) })).filter(i => i.name),
-      steps: (r.steps || []).map(x => typeof x === 'string' ? x : x.text).filter(Boolean),
-      stepGroups: (() => { const g = (r.steps || []).filter(x => typeof x === 'string' ? x : x.text).map(x => (typeof x === 'string' ? '' : (x.group || '').trim())); return g.some(Boolean) ? g : undefined; })(), notes: r.notes || d.notes, source: url || d.source, videoId: videoId || d.videoId || '',
-      macros: r.kcal ? { kcal: Math.round(r.kcal), p: Math.round(r.protein || 0), f: Math.round(r.fat || 0), c: Math.round(r.carbs || 0) } : d.macros,
-      photo: d.photo || poster
-    });
+    applyAI(d, r); Object.assign(d, { source: url || d.source, videoId: videoId || d.videoId || '', photo: d.photo || poster });
     aiProgress(100, '✅ Готово!'); await new Promise(r => setTimeout(r, 400));
     ai.force = false;
     const sec = x => Math.round(x / 1000);
