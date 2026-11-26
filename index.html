@@ -985,43 +985,54 @@ const RECIPE_PROMPT = `Ти — кулінарний помічник. Тобі 
 - category: одна з: Сніданки, Супи, Основні страви, Салати, Випічка, Десерти, Напої, Закуски.
 - kcal, protein, fat, carbs: оцінка на 1 порцію.
 - Якщо в матеріалах немає рецепта, постав is_recipe=false.`;
+window.__gemLog = [];
 async function gemGenerate(parts) {
-  const order = S.settings.fastMode !== false ? ['gemini-3.5-flash-lite', S.settings.gemModel, ...GEM_MODELS] : [S.settings.gemModel, ...GEM_MODELS];
-  const all = order.filter((m, i, a) => m && a.indexOf(m) === i);
-  const models = all.filter(m => leftToday(m) > 0);
-  if (!models.length) { const e = new Error('limit'); e.status = 429; throw e; }
-  let lastErr;
-  for (let round = 0; round < 2; round++) {
-    for (const m of models) {
-      if (!leftToday(m)) continue;
-      try {
-        if (round || m !== models[0]) aiStatus(`🔁 Пробую ${GEM_LIMITS[m]?.name || m}…`);
-        const gc = { temperature: 0.2, responseMimeType: 'application/json', responseSchema: RECIPE_SCHEMA };
-        if (!S.meta.noLowRes) gc.mediaResolution = 'MEDIA_RESOLUTION_LOW';   // менше токенів — швидше й економніше
-        if (!S.meta.noThinkCfg2) gc.thinkingConfig = { thinkingLevel: m === 'gemini-3.8-flash' ? 'low' : 'minimal' };   // менше «роздумів» — швидша відповідь
-        const res = await gemFetch(`${GEM}/v1beta/models/${m}:generateContent`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contents: [{ role: 'user', parts }], generationConfig: gc }) });
-        const j = await res.json();   // посередник віддає 200 і помилку всередині JSON
-        if (j.error) {
-          if (j.error.code === 400 && /media.?resolution/i.test(j.error.message || '')) { S.meta.noLowRes = true; save(true); throw Object.assign(new Error('retry'), { status: 400 }); }
-          if (j.error.code === 400 && /thinking/i.test(j.error.message || '')) { S.meta.noThinkCfg2 = true; save(true); throw Object.assign(new Error('retry'), { status: 400 }); }
-          throw Object.assign(new Error(j.error.message || 'Gemini error'), { status: j.error.code });
-        }
-        noteUse(m);
-        const txt = (j.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('');
-        if (!txt) throw new Error(j.promptFeedback?.blockReason ? 'Запит заблоковано' : 'Порожня відповідь');
-        return JSON.parse(txt.replace(/^```json\s*|```$/g, ''));
-      } catch (e) {
-        lastErr = e;
-        if (e.status === 429) noteUse(m, /per.?day|daily|PerDay/i.test(e.message));
-        else if (e.status === 400 && e.message !== 'retry') noteUse(m);   // перевантаження (5xx) ліміт не витрачає
-        if (/api key|API_KEY/i.test(e.message)) throw e;          // поганий ключ — далі нема сенсу
-        if (e.status && ![400, 404, 429, 500, 502, 503, 504, 524].includes(e.status)) throw e;
-      }
+  // План спроб: швидка модель → її повтор → інші. 3.1 Flash-Lite — останній (дуже повільний на відео).
+  const fast = S.settings.fastMode !== false;
+  const plan = fast
+    ? ['gemini-3.5-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.6-flash', 'gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite']
+    : [S.settings.gemModel, S.settings.gemModel, ...GEM_MODELS.filter(m => m !== S.settings.gemModel), S.settings.gemModel];
+  if (!plan.some(m => leftToday(m) > 0)) { const e = new Error('limit'); e.status = 429; throw e; }
+  let lastErr, prev = null;
+  for (const [n, m] of plan.entries()) {
+    if (!leftToday(m)) continue;
+    if (n && lastErr) {
+      aiStatus(`🔁 ${GEM_LIMITS[prev]?.name || prev}: ${lastErr.status === 503 ? 'перевантажений' : lastErr.status === 429 ? 'забагато запитів' : lastErr.status === 'timeout' ? 'задовго думає' : 'помилка ' + (lastErr.status || '')} — пробую ${GEM_LIMITS[m]?.name || m}…`);
+      if (m === prev) await new Promise(r => setTimeout(r, 2000));
     }
-    await new Promise(r => setTimeout(r, 4000 * (round + 1)));   // зачекати й спробувати знову
+    prev = m;
+    const t0 = Date.now();
+    const ctl = new AbortController(); const limit = m === 'gemini-3.1-flash-lite' ? 120000 : 45000;
+    const timer = setTimeout(() => ctl.abort(), limit);
+    try {
+      const gc = { temperature: 0.2, responseMimeType: 'application/json', responseSchema: RECIPE_SCHEMA };
+      if (!S.meta.noLowRes) gc.mediaResolution = 'MEDIA_RESOLUTION_LOW';
+      if (!S.meta.noThinkCfg2) gc.thinkingConfig = { thinkingLevel: m === 'gemini-3.8-flash' ? 'low' : 'minimal' };
+      let res;
+      try { res = await gemFetch(`${GEM}/v1beta/models/${m}:generateContent`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: ctl.signal,
+        body: JSON.stringify({ contents: [{ role: 'user', parts }], generationConfig: gc }) }); }
+      catch (e) { if (e.name === 'AbortError') throw Object.assign(new Error('timeout'), { status: 'timeout' }); throw e; }
+      const j = await res.json().catch(e => { if (e.name === 'AbortError') throw Object.assign(new Error('timeout'), { status: 'timeout' }); throw e; });
+      if (j.error) {
+        if (j.error.code === 400 && /media.?resolution/i.test(j.error.message || '')) { S.meta.noLowRes = true; save(true); throw Object.assign(new Error('retry'), { status: 400 }); }
+        if (j.error.code === 400 && /thinking/i.test(j.error.message || '')) { S.meta.noThinkCfg2 = true; save(true); throw Object.assign(new Error('retry'), { status: 400 }); }
+        throw Object.assign(new Error(j.error.message || 'Gemini error'), { status: j.error.code });
+      }
+      noteUse(m);
+      const txt = (j.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('');
+      if (!txt) throw Object.assign(new Error(j.promptFeedback?.blockReason ? 'Запит заблоковано' : 'Порожня відповідь'), { status: 'empty' });
+      const r = JSON.parse(txt.replace(/^```json\s*|```$/g, ''));
+      window.__gemLog.push({ m, ok: true, s: (Date.now() - t0) / 1000 }); r._model = m;
+      return r;
+    } catch (e) {
+      lastErr = e; window.__gemLog.push({ m, status: e.status, msg: String(e.message).slice(0, 100), s: (Date.now() - t0) / 1000 });
+      if (e.status === 429) noteUse(m, /per.?day|daily|PerDay/i.test(e.message));
+      else if (e.status === 400 && e.message !== 'retry') noteUse(m);
+      if (/api key|API_KEY/i.test(e.message)) throw e;
+      if (e.status && ![400, 404, 429, 500, 502, 503, 504, 524, 'timeout', 'empty'].includes(e.status)) throw e;
+    } finally { clearTimeout(timer); }
   }
-  if (lastErr && [500, 502, 503, 504].includes(lastErr.status)) throw new Error('Gemini зараз перевантажений. Спробуйте через кілька хвилин.');
+  if (lastErr && [500, 502, 503, 504, 'timeout'].includes(lastErr.status)) throw new Error('Gemini зараз перевантажений. Спробуйте через кілька хвилин.');
   throw lastErr;
 }
 async function videoPoster(file) {
@@ -1106,7 +1117,7 @@ async function aiRun() {
     const sec = x => Math.round(x / 1000);
     console.log('⏱ timing', { download: sec(T.dl - T.start), gemini: sec(T.ai - T.dl), total: sec(Date.now() - T.start) });
     closeSheet(); render();
-    toast(fast ? `⚡ Рецепт узято з опису чи коментарів за ${sec(Date.now() - T.start)} с` : `✨ Готово за ${sec(Date.now() - T.start)} с (відео ${sec(T.dl - T.start)} с, Gemini ${sec(T.ai - T.dl)} с)`);
+    toast(fast ? `⚡ Рецепт узято з опису чи коментарів за ${sec(Date.now() - T.start)} с` : `✨ Готово за ${sec(Date.now() - T.start)} с (TikTok ${sec(T.dl - T.start)} с, ${GEM_LIMITS[r._model]?.name || 'Gemini'} ${sec(T.ai - T.dl)} с)`);
   } catch (e) {
     console.error(e);
     aiStatus('❌ ' + (e.status === 429 ? `Вичерпано безкоштовний ліміт Gemini. Оновиться о ${resetTime()}.` : /api key|API_KEY|permission/i.test(e.message) ? 'Ключ Gemini не підходить. Перевірте його в «Ще».' : /Failed to fetch|NetworkError|Load failed/i.test(e.message) ? 'Немає звʼязку з Gemini. Перевірте інтернет.' : e.message));
