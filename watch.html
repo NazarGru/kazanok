@@ -24,7 +24,8 @@ h2{font-size:21px;margin:34px 0 6px;display:flex;align-items:center;gap:8px}
 .step{display:grid;grid-template-columns:1fr;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:16px;margin:14px 0}
 @media(min-width:640px){.step{grid-template-columns:1fr 300px;align-items:center}}
 .num{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;font-weight:700;font-size:14px;margin-right:8px;flex:none}
-.step h3{margin:0 0 6px;font-size:17px;display:flex;align-items:center}
+.step h3{margin:0 0 6px;font-size:17px}
+.step h3 .num{vertical-align:middle}
 .step p{margin:4px 0;font-size:15px}
 .tip{background:var(--accent-soft);border-radius:12px;padding:10px 12px;font-size:14px;margin-top:8px}
 b.k{color:var(--accent)}
@@ -64,15 +65,18 @@ b.k{color:var(--accent)}
 .watch .w .c{width:16px;height:16px;border-radius:50%;border:2px solid #ff9500;flex:none}
 .watch .w .c.d{background:#ff9500}
 footer{color:var(--muted);font-size:13px;margin-top:30px;text-align:center}
+#lang button{border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:999px;padding:6px 14px;font:inherit;font-size:14px;font-weight:600}
+#lang button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
 </style>
 </head>
 <body>
 <div class="wrap">
 <a class="back" href="./">‹ Назад у Казанок</a>
 <h1>⌚ Казанок на Apple Watch</h1>
-<p class="lead">Годинник не відкриває сайти, тому Казанок передає дані у програми, які вже є на Watch: <b>«Нагадування»</b> для покупок і <b>«Годинник»</b> для таймерів. Для цього один раз створіть дві маленькі команди. Це займе 3–4 хвилини.</p>
+<p class="lead">Годинник не відкриває сайти, тому Казанок передає дані у програми, які вже є на Watch: <b>«<span data-en="Reminders">Нагадування</span>»</b> для покупок і <b>«Годинник»</b> для таймерів. Для цього один раз створіть дві маленькі команди. Це займе 3–4 хвилини.</p>
+<div id="lang" style="display:flex;gap:6px;margin:4px 0 14px;align-items:center;flex-wrap:wrap"><span style="color:var(--muted);font-size:14px">Мова iPhone:</span><button data-l="en">English</button><button data-l="ua">Українська</button></div>
 <div class="toc">
-  <a href="#fast">⚡ Без налаштувань<span>скопіювати покупки й вставити в «Нагадування»</span></a>
+  <a href="#fast">⚡ Без налаштувань<span>скопіювати покупки й вставити в «<span data-en="Reminders">Нагадування</span>»</span></a>
   <a href="#shop">🛒 Команда «Казанок покупки»<span>список на годиннику одним дотиком</span></a>
   <a href="#timer">⏱ Команда «Казанок таймер»<span>таймери з режиму готування на iPhone і Watch</span></a>
   <a href="#on">✅ Увімкнути в Казанку</a>
@@ -84,34 +88,34 @@ footer{color:var(--muted);font-size:13px;margin-top:30px;text-align:center}
 <div class="step">
   <div>
     <h3><span class="num">1</span>Скопіюйте список у Казанку</h3>
-    <p>Вкладка <b>«Покупки»</b> → внизу кнопка <b class="k">«⌚ У Нагадування»</b>. Список скопіюється, кожен продукт — окремим рядком.</p>
+    <p>Вкладка <b>«Покупки»</b> → внизу кнопка <b class="k">«⌚ У <span data-en="Reminders">Нагадування</span>»</b>. Список скопіюється, кожен продукт — окремим рядком.</p>
   </div>
   <div class="phone"><div class="scr kz">
     <div class="sb"><span>9:41</span><span>●●● ▮</span></div>
     <div class="big">Покупки</div>
     <div class="cardk" style="font-size:12px"><b style="color:var(--muted);font-size:11px">🥛 МОЛОЧНЕ</b><div>○ молоко <span style="float:right;color:var(--muted)">1 л</span></div><div>○ кефір <span style="float:right;color:var(--muted)">0,5 л</span></div>
       <b style="color:var(--muted);font-size:11px;display:block;margin-top:6px">🌾 КРУПИ, БОРОШНО</b><div>○ борошно <span style="float:right;color:var(--muted)">350 г</span></div></div>
-    <div style="display:flex;gap:6px;padding:0 12px"><div class="btnk hl" data-n="1" style="flex:1">⌚ У Нагадування</div><div class="btnk sec" style="flex:1">Прибрати куплене</div></div>
+    <div style="display:flex;gap:6px;padding:0 12px"><div class="btnk hl" data-n="1" style="flex:1">⌚ У <span data-en="Reminders">Нагадування</span></div><div class="btnk sec" style="flex:1">Прибрати куплене</div></div>
   </div></div>
 </div>
 <div class="step">
   <div>
-    <h3><span class="num">2</span>Вставте в «Нагадування»</h3>
-    <p>Відкрийте <b>«Нагадування»</b> → список <b>«Покупки»</b> (якщо його нема — «Додати список» унизу). Торкніться порожнього рядка → <b class="k">«Вставити»</b>.</p>
+    <h3><span class="num">2</span>Вставте в «<span data-en="Reminders">Нагадування</span>»</h3>
+    <p>Відкрийте <b>«<span data-en="Reminders">Нагадування</span>»</b> → список <b>«Покупки»</b> (якщо його нема — «<span data-en="Add List">Додати список</span>» унизу). Торкніться порожнього рядка → <b class="k">«<span data-en="Paste">Вставити</span>»</b>.</p>
     <p>Кожен рядок стане окремим нагадуванням.</p>
   </div>
   <div class="phone"><div class="scr">
     <div class="sb"><span>9:41</span><span>●●● ▮</span></div>
-    <div class="nav"><span class="bt">‹ Списки</span><span class="bt">•••</span></div>
+    <div class="nav"><span class="bt"><span data-en="‹ Lists">‹ Списки</span></span><span class="bt">•••</span></div>
     <div class="big" style="color:#ff9500">Покупки</div>
     <div class="list"><div class="row"><span style="color:#c7c7cc">○</span><span class="hl" data-n="2" style="padding:2px 4px">торкніться тут</span></div></div>
-    <div style="margin:4px 12px;display:inline-flex;background:#1c1c1e;color:#fff;border-radius:8px;overflow:hidden;font-size:12px"><span style="padding:6px 10px;border-right:1px solid #444" class="hl" data-n="3">Вставити</span><span style="padding:6px 10px">Вибрати</span></div>
+    <div style="margin:4px 12px;display:inline-flex;background:#1c1c1e;color:#fff;border-radius:8px;overflow:hidden;font-size:12px"><span style="padding:6px 10px;border-right:1px solid #444" class="hl" data-n="3"><span data-en="Paste">Вставити</span></span><span style="padding:6px 10px"><span data-en="Select">Вибрати</span></span></div>
   </div></div>
 </div>
 <div class="step">
   <div>
     <h3><span class="num">3</span>Відмічайте на годиннику</h3>
-    <p>На Apple Watch відкрийте <b>«Нагадування»</b> → <b>«Покупки»</b>. Торкайтеся кружечків, коли кладете продукт у кошик.</p>
+    <p>На Apple Watch відкрийте <b>«<span data-en="Reminders">Нагадування</span>»</b> → <b>«Покупки»</b>. Торкайтеся кружечків, коли кладете продукт у кошик.</p>
   </div>
   <div class="watch"><div class="w"><div style="color:#ff9500;font-weight:700;margin-bottom:6px">Покупки</div>
     <div class="it"><span class="c d"></span><s style="color:#777">молоко — 1 л</s></div><div class="it"><span class="c"></span>кефір — 0,5 л</div><div class="it"><span class="c"></span>борошно — 350 г</div></div></div>
@@ -119,118 +123,118 @@ footer{color:var(--muted);font-size:13px;margin-top:30px;text-align:center}
 
 <!-- ===================== КОМАНДА ПОКУПКИ ===================== -->
 <h2 id="shop">🛒 Команда «Казанок покупки»</h2>
-<p class="sub">Після цього кнопка в Казанку сама додаватиме весь список у «Нагадування» — без копіювання.</p>
+<p class="sub">Після цього кнопка в Казанку сама додаватиме весь список у «<span data-en="Reminders">Нагадування</span>» — без копіювання.</p>
 <div class="step">
   <div>
     <h3><span class="num">1</span>Створіть нову команду</h3>
-    <p>Відкрийте програму <b>«Команди»</b> (Shortcuts) → вкладка <b>«Команди»</b> → <b class="k">＋</b> у правому верхньому куті.</p>
-    <div class="tip">💡 Спершу створіть у «Нагадуваннях» список з назвою <b>Покупки</b> — він знадобиться на кроці 5.</div>
+    <p>Відкрийте програму <b>«<span data-en="Shortcuts">Команди</span>»</b> → вкладка <b>«<span data-en="Shortcuts">Команди</span>»</b> → <b class="k">＋</b> у правому верхньому куті.</p>
+    <div class="tip">💡 Спершу створіть у «<span data-en="Reminders">Нагадуваннях</span>» список з назвою <b>Покупки</b> — він знадобиться на кроці 5.</div>
   </div>
   <div class="phone"><div class="scr">
     <div class="sb"><span>9:41</span><span>●●● ▮</span></div>
-    <div class="nav"><span class="bt">Вибрати</span><span class="bt hl" data-n="1" style="font-size:22px;padding:0 6px">＋</span></div>
-    <div class="big">Усі команди</div>
-    <div class="search">🔍 Пошук</div>
-    <div class="grid2" style="margin-top:8px"><div class="tile" style="background:#5856d6">⏰<span>Будильник</span></div><div class="tile" style="background:#34c759">🏠<span>Додому</span></div><div class="tile" style="background:#ff9500">📝<span>Нотатка</span></div><div class="tile" style="background:#ff2d55">🎵<span>Музика</span></div></div>
+    <div class="nav"><span class="bt"><span data-en="Select">Вибрати</span></span><span class="bt hl" data-n="1" style="font-size:22px;padding:0 6px">＋</span></div>
+    <div class="big"><span data-en="All Shortcuts">Усі команди</span></div>
+    <div class="search"><span data-en="🔍 Search">🔍 Пошук</span></div>
+    <div class="grid2" style="margin-top:8px"><div class="tile" style="background:#5856d6">⏰<span data-en="Alarm">Будильник</span></div><div class="tile" style="background:#34c759">🏠<span data-en="Home">Додому</span></div><div class="tile" style="background:#ff9500">📝<span data-en="Note">Нотатка</span></div><div class="tile" style="background:#ff2d55">🎵<span data-en="Music">Музика</span></div></div>
   </div></div>
 </div>
 <div class="step">
   <div>
     <h3><span class="num">2</span>Назвіть команду</h3>
-    <p>Торкніться назви вгорі («Нова команда») → <b>«Перейменувати»</b> → введіть точно:</p>
+    <p>Торкніться назви вгорі («<span data-en="New Shortcut">Нова команда</span>») → <b>«<span data-en="Rename">Перейменувати</span>»</b> → введіть точно:</p>
     <p style="font-size:20px;font-weight:700;margin:8px 0">Казанок покупки</p>
     <div class="tip">⚠️ Назва має збігатися літера в літеру — саме за нею Казанок знаходить команду.</div>
   </div>
   <div class="phone"><div class="scr">
     <div class="sb"><span>9:41</span><span>●●● ▮</span></div>
-    <div class="nav"><span class="bt">Готово</span><span class="t hl" data-n="2" style="padding:2px 6px">Казанок покупки ⌄</span><span class="bt">⤴︎</span></div>
-    <div class="search" style="margin-top:14px">🔍 Пошук дій</div>
-    <div style="padding:30px 20px;text-align:center;color:var(--ios-muted)">Додайте дію,<br>щоб почати</div>
+    <div class="nav"><span class="bt"><span data-en="Done">Готово</span></span><span class="t hl" data-n="2" style="padding:2px 6px">Казанок покупки ⌄</span><span class="bt">⤴︎</span></div>
+    <div class="search" style="margin-top:14px">🔍 <span data-en="Search for apps and actions">Пошук дій</span></div>
+    <div style="padding:30px 20px;text-align:center;color:var(--ios-muted)"><span data-en="Add an action<br>to get started">Додайте дію,<br>щоб почати</span></div>
   </div></div>
 </div>
 <div class="step">
   <div>
-    <h3><span class="num">3</span>Дія «Розділити текст»</h3>
-    <p>Унизу в <b>«Пошук дій»</b> введіть <b>Розділити</b> → виберіть <b class="k">«Розділити текст»</b>.</p>
-    <p>Торкніться синього поля <span class="tok">Текст</span> → <b>«Вхідні дані команди»</b>. Друге поле має бути <span class="tok">Нові рядки</span> — так є за замовчуванням.</p>
+    <h3><span class="num">3</span>Дія «<span data-en="Split Text">Розділити текст</span>»</h3>
+    <p>Унизу в <b>«<span data-en="Search for apps and actions">Пошук дій</span>»</b> введіть <b><span data-en="Split">Розділити</span></b> → виберіть <b class="k">«<span data-en="Split Text">Розділити текст</span>»</b>.</p>
+    <p>Торкніться синього поля <span class="tok" data-en="Text">Текст</span> → <b>«<span data-en="Shortcut Input">Вхідні дані команди</span>»</b>. Друге поле має бути <span class="tok"><span data-en="New Lines">Нові рядки</span></span> — так є за замовчуванням.</p>
   </div>
   <div class="phone"><div class="scr">
     <div class="sb"><span>9:41</span><span>●●● ▮</span></div>
-    <div class="nav"><span class="bt">Готово</span><span class="t">Казанок покупки ⌄</span><span class="bt">⤴︎</span></div>
-    <div class="act"><span class="ic" style="background:#ffcc00">¶</span><span>Розділити <span class="tok hl" data-n="3">Вхідні дані команди</span> за <span class="tok">Нові рядки</span></span></div>
-    <div class="bottom"><div class="search" style="margin:0">🔍 Розділити</div>
-      <div style="display:flex;gap:8px;align-items:center;margin-top:8px"><span class="ic" style="background:#ffcc00">¶</span><b>Розділити текст</b></div></div>
+    <div class="nav"><span class="bt"><span data-en="Done">Готово</span></span><span class="t">Казанок покупки ⌄</span><span class="bt">⤴︎</span></div>
+    <div class="act"><span class="ic" style="background:#ffcc00">¶</span><span><span data-en="Split">Розділити</span> <span class="tok hl" data-n="3"><span data-en="Shortcut Input">Вхідні дані команди</span></span> <span data-en="by">за</span> <span class="tok"><span data-en="New Lines">Нові рядки</span></span></span></div>
+    <div class="bottom"><div class="search" style="margin:0"><span data-en="🔍 Split">🔍 Розділити</span></div>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:8px"><span class="ic" style="background:#ffcc00">¶</span><b><span data-en="Split Text">Розділити текст</span></b></div></div>
   </div></div>
 </div>
 <div class="step">
   <div>
-    <h3><span class="num">4</span>Дія «Повторити з кожним»</h3>
-    <p>У пошуку введіть <b>Повторити</b> → виберіть <b class="k">«Повторити з кожним»</b>. Вона сама підхопить <span class="tok">Розділений текст</span>.</p>
+    <h3><span class="num">4</span>Дія «<span data-en="Repeat with Each">Повторити з кожним</span>»</h3>
+    <p>У пошуку введіть <b><span data-en="Repeat">Повторити</span></b> → виберіть <b class="k">«<span data-en="Repeat with Each">Повторити з кожним</span>»</b>. Вона сама підхопить <span class="tok"><span data-en="Split Text">Розділений текст</span></span>.</p>
   </div>
   <div class="phone"><div class="scr">
     <div class="sb"><span>9:41</span><span>●●● ▮</span></div>
-    <div class="nav"><span class="bt">Готово</span><span class="t">Казанок покупки ⌄</span><span class="bt">⤴︎</span></div>
-    <div class="act"><span class="ic" style="background:#ffcc00">¶</span><span>Розділити <span class="tok">Вхідні дані команди</span> за <span class="tok">Нові рядки</span></span></div>
-    <div class="act hl" data-n="4"><span class="ic" style="background:#8e8e93">↻</span><span>Повторити з кожним елементом у <span class="tok y">Розділений текст</span></span></div>
-    <div class="end">Кінець повтору</div>
+    <div class="nav"><span class="bt"><span data-en="Done">Готово</span></span><span class="t">Казанок покупки ⌄</span><span class="bt">⤴︎</span></div>
+    <div class="act"><span class="ic" style="background:#ffcc00">¶</span><span><span data-en="Split">Розділити</span> <span class="tok"><span data-en="Shortcut Input">Вхідні дані команди</span></span> <span data-en="by">за</span> <span class="tok"><span data-en="New Lines">Нові рядки</span></span></span></div>
+    <div class="act hl" data-n="4"><span class="ic" style="background:#8e8e93">↻</span><span><span data-en="Repeat with each item in">Повторити з кожним елементом у</span> <span class="tok y"><span data-en="Split Text">Розділений текст</span></span></span></div>
+    <div class="end"><span data-en="End Repeat">Кінець повтору</span></div>
   </div></div>
 </div>
 <div class="step">
   <div>
-    <h3><span class="num">5</span>Дія «Додати нове нагадування» — всередину повтору</h3>
-    <p>Знайдіть <b>Нагадування</b> → <b class="k">«Додати нове нагадування»</b> і перетягніть її <b>між</b> «Повторити з кожним» і «Кінець повтору».</p>
-    <p>Торкніться поля <span class="tok">Нагадування</span> → виберіть <b>«Повторюваний елемент»</b>. Поле списку → <b>«Покупки»</b>.</p>
-    <p>Натисніть <b>«Готово»</b> вгорі. Команда готова ✓</p>
+    <h3><span class="num">5</span>Дія «<span data-en="Add New Reminder">Додати нове нагадування</span>» — всередину повтору</h3>
+    <p>Знайдіть <b><span data-en="Reminder">Нагадування</span></b> → <b class="k">«<span data-en="Add New Reminder">Додати нове нагадування</span>»</b> і перетягніть її <b>між</b> «<span data-en="Repeat with Each">Повторити з кожним</span>» і «<span data-en="End Repeat">Кінець повтору</span>».</p>
+    <p>Торкніться поля <span class="tok" data-en="Reminder">Нагадування</span> → виберіть <b>«<span data-en="Repeat Item">Повторюваний елемент</span>»</b>. Поле списку → <b>«Покупки»</b>.</p>
+    <p>Натисніть <b>«<span data-en="Done">Готово</span>»</b> вгорі. Команда готова ✓</p>
   </div>
   <div class="phone"><div class="scr">
     <div class="sb"><span>9:41</span><span>●●● ▮</span></div>
-    <div class="nav"><span class="bt hl" data-n="6" style="padding:0 4px">Готово</span><span class="t">Казанок покупки ⌄</span><span class="bt">⤴︎</span></div>
-    <div class="act"><span class="ic" style="background:#ffcc00">¶</span><span>Розділити <span class="tok">Вхідні дані команди</span> за <span class="tok">Нові рядки</span></span></div>
-    <div class="act"><span class="ic" style="background:#8e8e93">↻</span><span>Повторити з кожним елементом у <span class="tok y">Розділений текст</span></span></div>
-    <div class="act in hl" data-n="5"><span class="ic" style="background:#ff9500">☑</span><span>Додати <span class="tok y">Повторюваний елемент</span> у <span class="tok">Покупки</span></span></div>
-    <div class="end">Кінець повтору</div>
+    <div class="nav"><span class="bt hl" data-n="6" style="padding:0 4px"><span data-en="Done">Готово</span></span><span class="t">Казанок покупки ⌄</span><span class="bt">⤴︎</span></div>
+    <div class="act"><span class="ic" style="background:#ffcc00">¶</span><span><span data-en="Split">Розділити</span> <span class="tok"><span data-en="Shortcut Input">Вхідні дані команди</span></span> <span data-en="by">за</span> <span class="tok"><span data-en="New Lines">Нові рядки</span></span></span></div>
+    <div class="act"><span class="ic" style="background:#8e8e93">↻</span><span><span data-en="Repeat with each item in">Повторити з кожним елементом у</span> <span class="tok y"><span data-en="Split Text">Розділений текст</span></span></span></div>
+    <div class="act in hl" data-n="5"><span class="ic" style="background:#ff9500">☑</span><span><span data-en="Add">Додати</span> <span class="tok y"><span data-en="Repeat Item">Повторюваний елемент</span></span> <span data-en="to">у</span> <span class="tok">Покупки</span></span></div>
+    <div class="end"><span data-en="End Repeat">Кінець повтору</span></div>
   </div></div>
 </div>
 
 <!-- ===================== КОМАНДА ТАЙМЕР ===================== -->
 <h2 id="timer">⏱ Команда «Казанок таймер»</h2>
-<p class="sub">Тоді кожен таймер у режимі готування ставиться ще й у Годинник iPhone — і сповіщення приходить на Apple Watch.</p>
+<p class="sub">Тоді кожен таймер у режимі готування ставиться ще й у <span data-en="Clock (iPhone)">Годинник iPhone</span> — і сповіщення приходить на Apple Watch.</p>
 <div class="step">
   <div>
     <h3><span class="num">1</span>Нова команда з назвою</h3>
-    <p>«Команди» → <b>＋</b> → торкніться назви → <b>«Перейменувати»</b> → точно:</p>
+    <p>«<span data-en="Shortcuts">Команди</span>» → <b>＋</b> → торкніться назви → <b>«<span data-en="Rename">Перейменувати</span>»</b> → точно:</p>
     <p style="font-size:20px;font-weight:700;margin:8px 0">Казанок таймер</p>
   </div>
   <div class="phone"><div class="scr">
     <div class="sb"><span>9:41</span><span>●●● ▮</span></div>
-    <div class="nav"><span class="bt">Готово</span><span class="t hl" data-n="1" style="padding:2px 6px">Казанок таймер ⌄</span><span class="bt">⤴︎</span></div>
-    <div class="search" style="margin-top:14px">🔍 Пошук дій</div>
-    <div style="padding:30px 20px;text-align:center;color:var(--ios-muted)">Додайте дію,<br>щоб почати</div>
+    <div class="nav"><span class="bt"><span data-en="Done">Готово</span></span><span class="t hl" data-n="1" style="padding:2px 6px">Казанок таймер ⌄</span><span class="bt">⤴︎</span></div>
+    <div class="search" style="margin-top:14px">🔍 <span data-en="Search for apps and actions">Пошук дій</span></div>
+    <div style="padding:30px 20px;text-align:center;color:var(--ios-muted)"><span data-en="Add an action<br>to get started">Додайте дію,<br>щоб почати</span></div>
   </div></div>
 </div>
 <div class="step">
   <div>
-    <h3><span class="num">2</span>Дія «Отримати числа з вхідних даних»</h3>
-    <p>У пошуку введіть <b>Числа</b> → <b class="k">«Отримати числа з вхідних даних»</b>. Поле → <span class="tok">Вхідні дані команди</span>.</p>
+    <h3><span class="num">2</span>Дія «<span data-en="Get Numbers from Input">Отримати числа з вхідних даних</span>»</h3>
+    <p>У пошуку введіть <b><span data-en="Numbers">Числа</span></b> → <b class="k">«<span data-en="Get Numbers from Input">Отримати числа з вхідних даних</span>»</b>. Поле → <span class="tok"><span data-en="Shortcut Input">Вхідні дані команди</span></span>.</p>
     <div class="tip">Казанок передає кількість хвилин, напр. «10» — ця дія перетворює її на число.</div>
   </div>
   <div class="phone"><div class="scr">
     <div class="sb"><span>9:41</span><span>●●● ▮</span></div>
-    <div class="nav"><span class="bt">Готово</span><span class="t">Казанок таймер ⌄</span><span class="bt">⤴︎</span></div>
-    <div class="act hl" data-n="2"><span class="ic" style="background:#8e8e93">#</span><span>Отримати числа з <span class="tok">Вхідні дані команди</span></span></div>
+    <div class="nav"><span class="bt"><span data-en="Done">Готово</span></span><span class="t">Казанок таймер ⌄</span><span class="bt">⤴︎</span></div>
+    <div class="act hl" data-n="2"><span class="ic" style="background:#8e8e93">#</span><span><span data-en="Get numbers from">Отримати числа з</span> <span class="tok"><span data-en="Shortcut Input">Вхідні дані команди</span></span></span></div>
   </div></div>
 </div>
 <div class="step">
   <div>
-    <h3><span class="num">3</span>Дія «Почати таймер»</h3>
-    <p>Знайдіть <b>Таймер</b> → <b class="k">«Почати таймер»</b>. У полі часу виберіть змінну <span class="tok y">Числа</span>, одиниці — <b>хвилин</b>.</p>
-    <p>Натисніть <b>«Готово»</b>. Команда готова ✓</p>
+    <h3><span class="num">3</span>Дія «<span data-en="Start Timer">Почати таймер</span>»</h3>
+    <p>Знайдіть <b><span data-en="Timer">Таймер</span></b> → <b class="k">«<span data-en="Start Timer">Почати таймер</span>»</b>. У полі часу виберіть змінну <span class="tok y"><span data-en="Numbers">Числа</span></span>, одиниці — <b><span data-en="minutes">хвилин</span></b>.</p>
+    <p>Натисніть <b>«<span data-en="Done">Готово</span>»</b>. Команда готова ✓</p>
   </div>
   <div class="phone"><div class="scr">
     <div class="sb"><span>9:41</span><span>●●● ▮</span></div>
-    <div class="nav"><span class="bt hl" data-n="4" style="padding:0 4px">Готово</span><span class="t">Казанок таймер ⌄</span><span class="bt">⤴︎</span></div>
-    <div class="act"><span class="ic" style="background:#8e8e93">#</span><span>Отримати числа з <span class="tok">Вхідні дані команди</span></span></div>
-    <div class="act hl" data-n="3"><span class="ic" style="background:#ff9500">⏱</span><span>Почати таймер на <span class="tok y">Числа</span> <span class="tok">хвилин</span></span></div>
+    <div class="nav"><span class="bt hl" data-n="4" style="padding:0 4px"><span data-en="Done">Готово</span></span><span class="t">Казанок таймер ⌄</span><span class="bt">⤴︎</span></div>
+    <div class="act"><span class="ic" style="background:#8e8e93">#</span><span><span data-en="Get numbers from">Отримати числа з</span> <span class="tok"><span data-en="Shortcut Input">Вхідні дані команди</span></span></span></div>
+    <div class="act hl" data-n="3"><span class="ic" style="background:#ff9500">⏱</span><span><span data-en="Start timer for">Почати таймер на</span> <span class="tok y"><span data-en="Numbers">Числа</span></span> <span class="tok"><span data-en="minutes">хвилин</span></span></span></div>
   </div></div>
 </div>
 
@@ -240,13 +244,13 @@ footer{color:var(--muted);font-size:13px;margin-top:30px;text-align:center}
   <div>
     <h3><span class="num">1</span>Поставте галочки</h3>
     <p>Казанок → <b>«Ще»</b> → <b>«⌚ Apple Watch»</b> → <b>«Налаштувати»</b>. Поставте галочки <b>«Я створив команду»</b> біля обох команд.</p>
-    <p>Натисніть <b class="k">«Перевірити»</b>: у «Нагадуваннях» має зʼявитися «Перевірка Казанка», а в Годиннику iPhone — таймер на 1 хв.</p>
-    <div class="tip">При першому запуску iPhone спитає дозвіл для команди на доступ до «Нагадувань» — дозвольте.</div>
+    <p>Натисніть <b class="k">«Перевірити»</b>: у «<span data-en="Reminders">Нагадуваннях</span>» має зʼявитися «Перевірка Казанка», а в <span data-en="Clock (iPhone)">Годиннику iPhone</span> — таймер на 1 хв.</p>
+    <div class="tip">При першому запуску iPhone спитає дозвіл для команди на доступ до «Нагадувань» <span data-en="— натисніть «Allow»">— дозвольте</span>.</div>
   </div>
   <div class="phone"><div class="scr kz">
     <div class="sb"><span>9:41</span><span>●●● ▮</span></div>
     <div class="big" style="font-size:20px">⌚ Apple Watch</div>
-    <div class="cardk"><b>🛒 Покупки → «Нагадування»</b>
+    <div class="cardk"><b>🛒 Покупки → «<span data-en="Reminders">Нагадування</span>»</b>
       <div class="chk hl" data-n="1"><i>✓</i><span>Я створив команду — надсилати список одним дотиком</span></div>
       <div class="btnk sec hl" data-n="2" style="display:inline-block;padding:6px 12px">Перевірити</div></div>
     <div class="cardk"><b>⏱ Таймери → iPhone і Watch</b>
@@ -256,15 +260,21 @@ footer{color:var(--muted);font-size:13px;margin-top:30px;text-align:center}
 <div class="step">
   <div>
     <h3><span class="num">2</span>Як цим користуватись</h3>
-    <p>🛒 <b>Покупки:</b> «Покупки» → <b>«⌚ У Нагадування»</b> — і список уже на годиннику.</p>
-    <p>⏱ <b>Таймери:</b> у режимі готування натисніть будь-який таймер — він піде і в Казанок, і в Годинник iPhone. На секунду відкриються «Команди» — поверніться в Казанок свайпом.</p>
+    <p>🛒 <b>Покупки:</b> «Покупки» → <b>«⌚ У <span data-en="Reminders">Нагадування</span>»</b> — і список уже на годиннику.</p>
+    <p>⏱ <b>Таймери:</b> у режимі готування натисніть будь-який таймер — він піде і в Казанок, і в <span data-en="Clock (iPhone)">Годинник iPhone</span>. На секунду відкриються «<span data-en="Shortcuts">Команди</span>» — поверніться в Казанок свайпом.</p>
     <div class="tip">Сповіщення таймера приходить на Apple Watch, коли iPhone заблокований або в кишені. Якщо телефон у руках і розблокований — iPhone покаже його сам.</div>
   </div>
-  <div class="watch"><div class="w" style="text-align:center"><div style="font-size:34px;margin-top:20px">⏱</div><div style="font-size:16px;font-weight:700;margin-top:6px">Таймер</div><div style="color:#ff9500;margin-top:4px">Час вийшов</div>
-    <div style="background:#ff9500;color:#000;border-radius:20px;padding:8px;margin-top:22px;font-weight:700">Зупинити</div></div></div>
+  <div class="watch"><div class="w" style="text-align:center"><div style="font-size:34px;margin-top:20px">⏱</div><div style="font-size:16px;font-weight:700;margin-top:6px"><span data-en="Timer">Таймер</span></div><div style="color:#ff9500;margin-top:4px"><span data-en="Timer Done">Час вийшов</span></div>
+    <div style="background:#ff9500;color:#000;border-radius:20px;padding:8px;margin-top:22px;font-weight:700"><span data-en="Stop">Зупинити</span></div></div></div>
 </div>
 
 <footer>Казанок · <a href="./" style="color:var(--accent)">повернутися до рецептів</a></footer>
 </div>
+<script>
+function setLang(l){document.querySelectorAll('[data-en]').forEach(e=>{if(e.dataset.ua==null)e.dataset.ua=e.innerHTML;e.innerHTML=l==='en'?e.dataset.en:e.dataset.ua});
+document.querySelectorAll('#lang button').forEach(b=>b.classList.toggle('on',b.dataset.l===l));try{localStorage.setItem('kz.scLang',l)}catch(e){}}
+document.querySelectorAll('#lang button').forEach(b=>b.onclick=()=>setLang(b.dataset.l));
+let L='en';try{L=localStorage.getItem('kz.scLang')||'en'}catch(e){}setLang(L);
+</script>
 </body>
 </html>
