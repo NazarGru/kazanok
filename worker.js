@@ -58,6 +58,41 @@ const up = r.headers.get('x-goog-upload-url');
 if (up) oh.set('x-goog-upload-url', up);
 return new Response(r.body, { status: r.status, headers: oh });
 }
+if (u.pathname === '/comments') {
+const url = u.searchParams.get('url') || '';
+if (!url.includes('tiktok.com/')) return json({ code: -1, msg: 'TikTok link needed' }, 400);
+const first = await fetch(url, { redirect: 'follow', headers: { 'User-Agent': UA } });
+let m = first.url.match(/\/(?:video|photo|v)\/(\d{10,})/);
+if (!m) m = (await first.text()).match(/"(?:id|aweme_id|itemId)":"(\d{15,})"/);
+if (!m) return json({ code: -1, msg: 'No video id' });
+const id = m[1], errors = [];
+let author = '', comments = [];
+try {
+const page = await fetch('https://www.tiktok.com/@_/video/' + id, { headers: { 'User-Agent': UA, 'Accept-Language': 'en-US,en;q=0.9' } });
+const cookie = cookieOf(page);
+const ph = await page.text();
+const sm = ph.match(/<script id="__UNIVERSAL_DATA_FOR_REHYDRATION__"[^>]*>([\s\S]*?)<\/script>/);
+if (sm) { try { const it = JSON.parse(sm[1]).__DEFAULT_SCOPE__['webapp.video-detail'].itemInfo.itemStruct; author = (it.author && it.author.uniqueId) || ''; } catch (e) {} }
+const r = await fetch('https://www.tiktok.com/api/comment/list/?aid=1988&count=50&cursor=0&aweme_id=' + id, { headers: { 'User-Agent': UA, 'Referer': 'https://www.tiktok.com/', 'Cookie': cookie } });
+const t = await r.text();
+const j = t ? JSON.parse(t) : {};
+for (const c of (j.comments || [])) {
+const cu = (c.user && c.user.unique_id) || '';
+comments.push({ text: c.text || '', user: cu, likes: c.digg_count || 0, pinned: !!(c.author_pin || c.stick_position), byAuthor: !!author && cu === author });
+for (const rc of (c.reply_comment || [])) { const ru = (rc.user && rc.user.unique_id) || ''; if (author && ru === author) comments.push({ text: rc.text || '', user: ru, likes: rc.digg_count || 0, byAuthor: true, reply: true }); }
+}
+if (!comments.length) errors.push('tiktok: empty');
+} catch (e) { errors.push('tiktok: ' + e); }
+if (!comments.length) {
+try {
+const r = await fetch('https://www.tikwm.com/api/comment/list/', { method: 'POST', body: new URLSearchParams({ url, count: '50', cursor: '0' }), headers: { 'User-Agent': UA, 'Content-Type': 'application/x-www-form-urlencoded' } });
+const j = await r.json();
+for (const c of ((j.data && j.data.comments) || [])) { const cu = (c.user && c.user.unique_id) || ''; comments.push({ text: c.text || '', user: cu, likes: c.digg_count || 0, byAuthor: !!author && cu === author }); }
+if (!comments.length) errors.push('tikwm: ' + (j.msg || 'empty'));
+} catch (e) { errors.push('tikwm: ' + e); }
+}
+return json({ code: 0, id, author, comments, errors });
+}
 if (u.pathname === '/info') {
 const url = u.searchParams.get('url') || '';
 if (!url.includes('tiktok.com/')) return json({ code: -1, msg: 'TikTok link needed' }, 400);

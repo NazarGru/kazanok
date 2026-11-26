@@ -68,6 +68,9 @@ ul.ing li:last-child{border:0}
 ul.ing .q{min-width:86px;color:var(--accent);font-weight:600;font-variant-numeric:tabular-nums}
 ol.steps{margin:0;padding-left:0;list-style:none;counter-reset:s}
 ol.steps li{counter-increment:s;display:flex;gap:12px;padding:8px 0}
+.grp{font-size:13px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.6px;margin:14px 0 2px;display:flex;align-items:center;gap:6px}
+.grp:first-child{margin-top:4px}
+ul.ing li.grp{border:0;padding:12px 0 2px}
 ol.steps li::before{content:counter(s);flex:none;width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-size:13px;font-weight:700}
 .btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px 16px;border-radius:14px;background:var(--accent);color:#fff;font-weight:600;font-size:16px}
 .btn.sec{background:var(--card);color:var(--text);border:1px solid var(--line)}
@@ -579,10 +582,10 @@ function vDetail() {
   <div class="card"><div class="row between"><h3 style="margin:0">Інгредієнти</h3>
     <div class="stepper"><button onclick="setServ(-1)">−</button><span>${serv}</span><button onclick="setServ(1)">+</button></div></div>
     <div class="small muted" style="margin:2px 0 6px">${porc(serv)}</div>
-    <ul class="ing">${r.ingredients.map(i => `<li><span class="q">${i.amount != null ? fmtNum(i.amount * k) + ' ' + esc(i.unit) : esc(i.unit)}</span><span>${esc(i.name)}</span></li>`).join('')}</ul>
+    <ul class="ing">${grouped(r.ingredients, i => i.group).map(b => (b.group ? `<li class="grp">${groupEmoji(b.group)} ${esc(b.group)}</li>` : '') + b.items.map(({ x: i }) => `<li><span class="q">${i.amount != null ? fmtNum(i.amount * k) + ' ' + esc(i.unit) : esc(i.unit)}</span><span>${esc(i.name)}</span></li>`).join('')).join('')}</ul>
   </div>
   <div class="btns"><button class="btn" onclick="startCook('${r.id}')">👩‍🍳 Готувати</button><button class="btn sec" onclick="addToShop('${r.id}',${serv})">🛒 У покупки</button></div>
-  ${r.steps.length ? `<div class="card"><h3>Приготування</h3><ol class="steps">${r.steps.map(s => `<li><span>${esc(s)}</span></li>`).join('')}</ol></div>` : ''}
+  ${r.steps.length ? `<div class="card"><h3>Приготування</h3>${grouped(r.steps, (x, i) => stepGroupOf(r, i)).map(b => (b.group ? `<div class="grp">${groupEmoji(b.group)} ${esc(b.group)}</div>` : '') + `<ol class="steps">${b.items.map(({ x }) => `<li><span>${esc(x)}</span></li>`).join('')}</ol>`).join('')}</div>` : ''}
   ${r.notes ? `<div class="card"><h3>Нотатки</h3><div style="white-space:pre-wrap">${esc(r.notes)}</div></div>` : ''}
   ${r.source ? `<div class="card small">Джерело: <a href="${esc(r.source)}" target="_blank" rel="noopener">${esc(r.source.replace(/^https?:\/\/(www\.)?/, '').slice(0, 60))}</a></div>` : ''}
   <button class="btn danger" style="margin-top:12px" onclick="delRecipe('${r.id}')">Видалити рецепт</button>`;
@@ -615,10 +618,10 @@ function vEdit() {
     <button type="button" class="chip" onclick="syncDraft();newFolder(f=>{ui.draft.folders.push(f.id);render()})">＋ Нова</button></div>
   <div class="grid2"><div><label class="f">Порцій</label><input class="inp" id="e_serv" type="number" min="1" inputmode="numeric" value="${d.servings || 1}"></div>
     <div><label class="f">Хвилин</label><input class="inp" id="e_time" type="number" min="0" inputmode="numeric" value="${d.time || ''}"></div></div>
-  <label class="f">Інгредієнти — кожен з нового рядка, напр. «200 г борошно», «2 шт яйце», «сіль за смаком»</label>
-  <textarea class="inp" id="e_ing" rows="8">${esc(d.ingredients.map(ingLine).join('\n'))}</textarea>
+  <label class="f">Інгредієнти — кожен з нового рядка, напр. «200 г борошно». Складові страви — рядком із «#», напр. «# Тісто», «# Соус»</label>
+  <textarea class="inp" id="e_ing" rows="10">${esc(linesWithGroups(d.ingredients, ingLine, i => i.group))}</textarea>
   <label class="f">Кроки — кожен з нового рядка. Час («10 хв») стане таймером</label>
-  <textarea class="inp" id="e_steps" rows="8">${esc(d.steps.join('\n'))}</textarea>
+  <textarea class="inp" id="e_steps" rows="10">${esc(linesWithGroups(d.steps, x => x, (x, i) => stepGroupOf(d, i)))}</textarea>
   <label class="f">КБЖВ на порцію (не обовʼязково, інакше порахую сам)</label>
   <div class="grid4"><input class="inp" id="m_k" inputmode="decimal" placeholder="ккал" value="${m.kcal ?? ''}"><input class="inp" id="m_p" inputmode="decimal" placeholder="Б" value="${m.p ?? ''}"><input class="inp" id="m_f" inputmode="decimal" placeholder="Ж" value="${m.f ?? ''}"><input class="inp" id="m_c" inputmode="decimal" placeholder="В" value="${m.c ?? ''}"></div>
   <label class="f">Посилання на джерело</label><input class="inp" id="e_src" type="url" value="${esc(d.source)}" placeholder="https://…">
@@ -631,8 +634,11 @@ function syncDraft() {
   const fe = document.getElementById('e_folders'); if (fe) d.folders = [...fe.querySelectorAll('.chip.on[data-id]')].map(c => c.dataset.id);
   d.category = recipeFolders(d)[0]?.name || d.category || '';
   d.servings = Math.max(1, parseInt(v('e_serv')) || 1); d.time = parseInt(v('e_time')) || '';
-  d.ingredients = v('e_ing').split('\n').map(s => s.trim()).filter(Boolean).map(parseIngredient);
-  d.steps = v('e_steps').split('\n').map(s => s.replace(/^\s*\d+[.)]\s*/, '').trim()).filter(Boolean);
+  { let g = ''; d.ingredients = [];
+    for (const l of v('e_ing').split('\n').map(s => s.trim()).filter(Boolean)) { if (isGroupHeader(l)) { g = headerName(l); continue; } const i = parseIngredient(l); if (g) i.group = g; d.ingredients.push(i); } }
+  { let g = ''; d.steps = []; d.stepGroups = [];
+    for (const l of v('e_steps').split('\n').map(s => s.trim()).filter(Boolean)) { if (isGroupHeader(l)) { g = headerName(l); continue; } d.steps.push(l.replace(/^\s*\d+[.)]\s*/, '').trim()); d.stepGroups.push(g); }
+    if (!d.stepGroups.some(Boolean)) delete d.stepGroups; }
   d.source = v('e_src').trim(); d.notes = v('e_notes').trim();
   const num = id => { const x = parseFloat(v(id).replace(',', '.')); return isNaN(x) ? null : x; };
   d.macros = num('m_k') ? { kcal: num('m_k'), p: num('m_p') || 0, f: num('m_f') || 0, c: num('m_c') || 0 } : null;
@@ -683,12 +689,12 @@ function doImport() {
   const r = parseRecipeText(txt); closeSheet(); syncDraft();
   const d = ui.draft;
   if (!d.title) d.title = r.title; if (r.servings) d.servings = r.servings; if (r.time) d.time = r.time; if (r.source) d.source = r.source;
-  d.ingredients = r.ingredients.length ? r.ingredients : d.ingredients; d.steps = r.steps.length ? r.steps : d.steps;
+  d.ingredients = r.ingredients.length ? r.ingredients : d.ingredients; if (r.steps.length) { d.steps = r.steps; d.stepGroups = r.stepGroups; }
   render(); toast(`Знайдено: ${r.ingredients.length} інгр., ${r.steps.length} кроків`);
 }
 function parseRecipeText(txt) {
   const lines = txt.split(/\r?\n/).map(l => l.trim()).filter(l => l && !/^#\w/.test(l));
-  let title = '', mode = null, ingredients = [], steps = [], servings = null, time = null, source = '';
+  let title = '', mode = null, ingredients = [], steps = [], stepGroups = [], group = '', servings = null, time = null, source = '';
   const isIngHead = l => /^(інгредієнт|склад|що потрібно|нам знадобиться|продукти|ingredients|ингредиент)/i.test(l);
   const isStepHead = l => /^(приготування|спосіб|як готувати|рецепт:|кроки|інструкц|method|directions|instructions|steps|приготовление)/i.test(l);
   for (let l of lines) {
@@ -696,17 +702,37 @@ function parseRecipeText(txt) {
     const sv = l.match(/(\d+)\s*(порц|serving|персон)/i) || l.match(/^(?:порці\S*|serves|servings)[^\d]{0,5}(\d+)/i); if (sv && l.length < 40) { servings = +sv[1]; continue; }
     const tm = l.match(/(?:час|time)[^\d]{0,15}(\d+)\s*(хв|min|год|h)/i); if (tm && l.length < 50) { time = /год|h/i.test(tm[2]) ? tm[1] * 60 : +tm[1]; continue; }
     if (isIngHead(l)) { mode = 'ing'; const rest = l.replace(/^[^:]*:\s*/, ''); if (rest && rest !== l) rest.split(/[,;]/).forEach(x => x.trim() && ingredients.push(parseIngredient(x))); continue; }
-    if (isStepHead(l)) { mode = 'step'; continue; }
+    if (isStepHead(l)) { mode = 'step'; group = ''; continue; }
+    if (mode && isGroupHeader(l) && !/^\d/.test(l)) { group = headerName(l); continue; }
     const clean = l.replace(/^[\p{Extended_Pictographic}️\s]+/u, '');
     if (!clean) continue;
     if (!title && !mode) { title = clean.replace(/[:.!]+$/, '').slice(0, 80); continue; }
     const numbered = /^\d+[.)]\s+/.test(clean);
     const looksIng = new RegExp('^' + NUM_RE + '\\s*' + UNIT_RE + '?\\s', 'i').test(clean) || /^[-•*·]/.test(l) || /за смаком|to taste/i.test(clean);
-    if (mode === 'step' || (numbered && clean.length > 25)) steps.push(clean.replace(/^\d+[.)]\s+/, ''));
-    else if (mode === 'ing' || (looksIng && clean.length < 60)) ingredients.push(parseIngredient(clean));
-    else if (clean.length > 25) steps.push(clean);
+    if (mode === 'step' || (numbered && clean.length > 25)) { steps.push(clean.replace(/^\d+[.)]\s+/, '')); stepGroups.push(group); }
+    else if (mode === 'ing' || (looksIng && clean.length < 60)) { const i = parseIngredient(clean); if (group) i.group = group; ingredients.push(i); }
+    else if (clean.length > 25) { steps.push(clean); stepGroups.push(group); }
   }
-  return { title: title || 'Новий рецепт', ingredients, steps, servings, time, source };
+  return { title: title || 'Новий рецепт', ingredients, steps, stepGroups: stepGroups.some(Boolean) ? stepGroups : undefined, servings, time, source };
+}
+
+/* ---- Складові страви (тісто, соус, начинка…) ---- */
+const GROUP_EMOJI = [[/тіст|корж|основ/i,'🫓'],[/соус|заправ|маринад|глазур/i,'🥫'],[/начин|топінг/i,'🧀'],[/крем|мус/i,'🍦'],[/подач|прикрас|декор/i,'🌿'],[/бульйон/i,'🍲'],[/фарш|мʼяс|м'яс/i,'🥩'],[/збир|випік|запік|смаж|подач/i,'🔥']];
+const groupEmoji = g => (GROUP_EMOJI.find(([re]) => re.test(g)) || [0, '▸'])[1];
+// розбиваємо масив на блоки [{group, items:[{x, i}]}] зі збереженням порядку
+function grouped(arr, groupOf) {
+  const out = [];
+  arr.forEach((x, i) => { const g = (groupOf(x, i) || '').trim(); const last = out[out.length - 1]; if (last && last.group === g) last.items.push({ x, i }); else out.push({ group: g, items: [{ x, i }] }); });
+  return out;
+}
+const stepGroupOf = (r, i) => (r.stepGroups || [])[i] || '';
+const hasGroups = r => r.ingredients.some(i => i.group) || (r.stepGroups || []).some(Boolean);
+const isGroupHeader = l => /^#\s*\S/.test(l) || (/^[^\d]{2,40}:\s*$/.test(l) && !/за смаком/i.test(l));
+const headerName = l => l.replace(/^#\s*/, '').replace(/:\s*$/, '').replace(/^для\s+/i, m => m).trim();
+function linesWithGroups(items, text, groupOf) {
+  const out = []; let g = null;
+  items.forEach((x, i) => { const gg = groupOf(x, i) || ''; if (gg !== g) { if (gg) out.push('# ' + gg); g = gg; } out.push(text(x)); });
+  return out.join('\n');
 }
 
 /* ---- Пошук дублікатів ---- */
@@ -788,7 +814,7 @@ function openAI() {
       <button class="btn" onclick="closeSheet();ui.stack=[];go('more','list',null,false)">Відкрити налаштування</button>`);
     return;
   }
-  ai.files = [];
+  ai.files = []; ai.comments = '';
   sheet(`<h3>✨ Розпізнати рецепт</h3>
     <label class="f">Посилання на TikTok або YouTube</label>
     <div class="addrow" style="margin:0"><input class="inp" id="ai_url" type="url" placeholder="https://vm.tiktok.com/…" inputmode="url">
@@ -879,6 +905,17 @@ async function fetchBlob(url, opt, onPct) {
   for (;;) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); got += value.length; onPct && onPct(got / total, got); }
   return new Blob(chunks, { type: res.headers.get('Content-Type') || '' });
 }
+async function tiktokComments(url) {
+  try { const j = await (await fetch(`${PROXY}/comments?url=${encodeURIComponent(url)}`)).json(); return j.comments || []; } catch { return []; }
+}
+// вибираємо коментарі, де може бути рецепт: спершу автора (закріплені — першими), потім схожі на рецепт з найбільшою кількістю лайків
+function recipeComments(list) {
+  const looks = c => captionIsRecipe(c.text) || (c.text.length > 140 && /\d/.test(c.text) && new RegExp(UNIT_RE, 'i').test(c.text));
+  const author = list.filter(c => c.byAuthor && c.text.length > 15).sort((a, b) => (b.pinned - a.pinned) || (b.text.length - a.text.length));
+  const others = list.filter(c => !c.byAuthor && looks(c)).sort((a, b) => b.likes - a.likes).slice(0, 3);
+  const picked = [...author.slice(0, 4), ...others];
+  return { picked, hasRecipe: picked.some(c => captionIsRecipe(c.text)), text: picked.map(c => `[${c.byAuthor ? 'Коментар АВТОРА' + (c.pinned ? ', закріплений' : '') : 'Коментар глядача, ❤ ' + c.likes}]\n${c.text}`).join('\n\n').slice(0, 5000) };
+}
 function captionIsRecipe(c) {
   if (!c || c.length < 80) return false;
   const lines = c.split(/\n|[•·]/).map(x => x.trim()).filter(Boolean);
@@ -924,8 +961,8 @@ async function gemUpload(file, mime) {
 const RECIPE_SCHEMA = { type: 'OBJECT', properties: {
   is_recipe: { type: 'BOOLEAN' }, title: { type: 'STRING' }, category: { type: 'STRING' },
   servings: { type: 'INTEGER' }, time: { type: 'INTEGER' },
-  ingredients: { type: 'ARRAY', items: { type: 'OBJECT', properties: { name: { type: 'STRING' }, amount: { type: 'NUMBER', nullable: true }, unit: { type: 'STRING' } }, required: ['name'] } },
-  steps: { type: 'ARRAY', items: { type: 'STRING' } }, notes: { type: 'STRING' },
+  ingredients: { type: 'ARRAY', items: { type: 'OBJECT', properties: { group: { type: 'STRING' }, name: { type: 'STRING' }, amount: { type: 'NUMBER', nullable: true }, unit: { type: 'STRING' } }, required: ['name'] } },
+  steps: { type: 'ARRAY', items: { type: 'OBJECT', properties: { group: { type: 'STRING' }, text: { type: 'STRING' } }, required: ['text'] } }, notes: { type: 'STRING' },
   kcal: { type: 'NUMBER' }, protein: { type: 'NUMBER' }, fat: { type: 'NUMBER' }, carbs: { type: 'NUMBER' } },
   required: ['is_recipe', 'title', 'ingredients', 'steps'] };
 const RECIPE_PROMPT = `Ти — кулінарний помічник. Тобі надіслано відео, фото та/або текст з рецептом (часто це TikTok, Instagram Reels чи YouTube).
@@ -936,6 +973,8 @@ const RECIPE_PROMPT = `Ти — кулінарний помічник. Тобі 
 - ingredients: name — назва продукту в називному відмінку з малої літери (напр. «борошно», «куряче філе»); amount — число або null; unit — одне з: г, кг, мл, л, шт, ст.л., ч.л., склянка, зубчик, пучок, дрібка, або порожній рядок. Не пропускай спецій та олії.
 - Якщо кількості не названо, оціни їх за відео й напиши в notes, що кількості орієнтовні.
 - steps: короткі кроки в наказовому способі («Наріжте…»), з часом і температурою, якщо вони є.
+- СКЛАДОВІ: якщо страва складається з кількох частин (піца: Тісто, Соус, Начинка; торт: Корж, Крем, Прикраса; паста: Соус, Подача), заповни group — коротку назву складової з великої літери — для КОЖНОГО інгредієнта й кроку. Порядок груп — у логіці приготування (спершу тісто, потім соус, потім начинка і випікання). Однаковий продукт у двох складових вказуй окремо з кількістю для кожної. Кроки збирання й випікання — окрема група, напр. «Збирання та випікання». Для простих страв group — порожній рядок.
+- ДЖЕРЕЛА: якщо рецепт уже написаний в описі під відео або в коментарях автора — бери кількості й інгредієнти саме звідти, а відео використовуй лише для уточнення кроків. Коментарі інших людей використовуй, тільки якщо там явно повний рецепт.
 - servings: кількість порцій (оціни, якщо не сказано). time: загальний час у хвилинах.
 - category: одна з: Сніданки, Супи, Основні страви, Салати, Випічка, Десерти, Напої, Закуски.
 - kcal, protein, fat, carbs: оцінка на 1 порцію.
@@ -1009,15 +1048,18 @@ async function aiRun() {
   try {
     const parts = []; let caption = txt;
     if (tt && !ai.files.length) {
-      aiProgress(3, '🔎 Шукаю відео в TikTok…');
-      let info = null; try { info = await tiktokInfo(url); videoId = info.data.id || videoId; } catch {}
+      aiProgress(3, '💬 Шукаю рецепт в описі та коментарях…');
+      const [ir, cr] = await Promise.allSettled([tiktokInfo(url), tiktokComments(url)]);
+      let info = ir.status === 'fulfilled' ? ir.value : null; if (info) videoId = info.data.id || videoId;
+      const com = recipeComments(cr.status === 'fulfilled' ? cr.value : []);
       // 2) те саме відео, але інше посилання (TikTok дає нове коротке посилання при кожному «Поділитися»)
       if (videoId && !ai.force) { const dup = findBySource(null, videoId); if (dup) { dupNotice(dup, 'Це відео вже розпізнане'); return; } }
       if (info?.data?.title && !caption) caption = info.data.title;
       // 3) швидкий шлях: якщо в описі вже є весь рецепт — не качаємо відео
-      if (captionIsRecipe(caption)) {
-        aiThinking(10, 90, '⚡ Рецепт є в описі — розпізнаю без відео…');
-        try { const q = await gemGenerate([{ text: RECIPE_PROMPT + '\n\nЦе текст опису під відео (самого відео немає):\n' + caption }]); if (q.is_recipe && (q.ingredients || []).length >= 3 && (q.steps || []).length >= 2) { r = q; fast = true; } } catch (e) { if (e.status === 429) throw e; }
+      ai.comments = com.text;
+      if (captionIsRecipe(caption) || com.hasRecipe) {
+        aiThinking(10, 90, captionIsRecipe(caption) ? '⚡ Рецепт є в описі — розпізнаю без відео…' : '⚡ Рецепт знайдено в коментарях — розпізнаю без відео…');
+        try { const q = await gemGenerate([{ text: RECIPE_PROMPT + '\n\nСамого відео немає, є тільки текст.\n\nОпис під відео:\n' + (caption || '—') + (com.text ? '\n\nКоментарі під відео:\n' + com.text : '') }]); if (q.is_recipe && (q.ingredients || []).length >= 3 && (q.steps || []).length >= 2) { r = q; fast = r.fastFrom || true; } } catch (e) { if (e.status === 429) throw e; }
       }
       if (!r) { const t = await tiktokFetch(url, info); ai.files = t.files; videoId = t.id || videoId; if (t.caption && !caption) caption = t.caption; }
     }
@@ -1029,7 +1071,7 @@ async function aiRun() {
       else { aiProgress(40, '📦 Готую файл…'); parts.push({ inline_data: { mime_type: mime, data: await fileB64(f) } }); }
     }
     if (yt) parts.push({ file_data: { file_uri: url } });
-    parts.push({ text: RECIPE_PROMPT + (caption ? `\n\nОпис від автора:\n${caption}` : '') + (url && !yt ? `\n\nПосилання на оригінал: ${url}` : '') });
+    parts.push({ text: RECIPE_PROMPT + (caption ? `\n\nОпис від автора:\n${caption}` : '') + (ai.comments ? `\n\nКоментарі під відео:\n${ai.comments}` : '') + (url && !yt ? `\n\nПосилання на оригінал: ${url}` : '') });
     aiThinking(50, 95, '🧠 Gemini дивиться й слухає відео… (зазвичай 15–40 с)');
     r = await gemGenerate(parts);
     }
@@ -1043,8 +1085,9 @@ async function aiRun() {
     Object.assign(d, {
       title: r.title || d.title, category: r.category || d.category,
       folders: (d.folders && d.folders.length) ? d.folders : [folderByName(r.category, true)?.id].filter(Boolean), servings: r.servings || d.servings || 2, time: r.time || d.time,
-      ingredients: r.ingredients.map(i => ({ name: (i.name || '').trim(), amount: typeof i.amount === 'number' && i.amount > 0 ? i.amount : null, unit: normUnit(i.unit || '') || (typeof i.amount === 'number' ? 'шт' : '') })).filter(i => i.name),
-      steps: (r.steps || []).filter(Boolean), notes: r.notes || d.notes, source: url || d.source, videoId: videoId || d.videoId || '',
+      ingredients: r.ingredients.map(i => ({ name: (i.name || '').trim(), amount: typeof i.amount === 'number' && i.amount > 0 ? i.amount : null, unit: normUnit(i.unit || '') || (typeof i.amount === 'number' ? 'шт' : ''), ...(i.group ? { group: i.group.trim() } : {}) })).filter(i => i.name),
+      steps: (r.steps || []).map(x => typeof x === 'string' ? x : x.text).filter(Boolean),
+      stepGroups: (() => { const g = (r.steps || []).filter(x => typeof x === 'string' ? x : x.text).map(x => (typeof x === 'string' ? '' : (x.group || '').trim())); return g.some(Boolean) ? g : undefined; })(), notes: r.notes || d.notes, source: url || d.source, videoId: videoId || d.videoId || '',
       macros: r.kcal ? { kcal: Math.round(r.kcal), p: Math.round(r.protein || 0), f: Math.round(r.fat || 0), c: Math.round(r.carbs || 0) } : d.macros,
       photo: d.photo || poster
     });
@@ -1053,7 +1096,7 @@ async function aiRun() {
     const sec = x => Math.round(x / 1000);
     console.log('⏱ timing', { download: sec(T.dl - T.start), gemini: sec(T.ai - T.dl), total: sec(Date.now() - T.start) });
     closeSheet(); render();
-    toast(fast ? `⚡ Рецепт узято з опису за ${sec(Date.now() - T.start)} с` : `✨ Готово за ${sec(Date.now() - T.start)} с (відео ${sec(T.dl - T.start)} с, Gemini ${sec(T.ai - T.dl)} с)`);
+    toast(fast ? `⚡ Рецепт узято з опису чи коментарів за ${sec(Date.now() - T.start)} с` : `✨ Готово за ${sec(Date.now() - T.start)} с (відео ${sec(T.dl - T.start)} с, Gemini ${sec(T.ai - T.dl)} с)`);
   } catch (e) {
     console.error(e);
     aiStatus('❌ ' + (e.status === 429 ? `Вичерпано безкоштовний ліміт Gemini. Оновиться о ${resetTime()}.` : /api key|API_KEY|permission/i.test(e.message) ? 'Ключ Gemini не підходить. Перевірте його в «Ще».' : /Failed to fetch|NetworkError|Load failed/i.test(e.message) ? 'Немає звʼязку з Gemini. Перевірте інтернет.' : e.message));
@@ -1088,7 +1131,7 @@ async function shareRecipe(id) {
   const r = R(id);
   const { photo, id: _, fav, created, ...rest } = r;
   const link = location.origin + location.pathname + '#r=' + await pack(rest);
-  const text = `${r.title}\n\nІнгредієнти (${r.servings} ${porc(r.servings)}):\n${r.ingredients.map(i => '• ' + ingLine(i)).join('\n')}\n\nПриготування:\n${r.steps.map((s, i) => `${i + 1}. ${s}`).join('\n')}`;
+  const text = `${r.title}\n\nІнгредієнти (${r.servings} ${porc(r.servings)}):\n${grouped(r.ingredients, i => i.group).map(b => (b.group ? `\n${b.group}:\n` : '') + b.items.map(({ x }) => '• ' + ingLine(x)).join('\n')).join('\n')}\n\nПриготування:\n${grouped(r.steps, (x, i) => stepGroupOf(r, i)).map(b => (b.group ? `\n${b.group}:\n` : '') + b.items.map(({ x }, n) => `${n + 1}. ${x}`).join('\n')).join('\n')}`;
   sheet(`<h3>Поділитися «${esc(r.title)}»</h3>
     <button class="btn" onclick="doShare(${esc(JSON.stringify({ title: r.title, url: link }))})">🔗 Посилання на рецепт</button>
     <p class="small muted">Хто відкриє посилання, зможе зберегти рецепт у свій Казанок (без фото).</p>
@@ -1295,7 +1338,7 @@ function renderCook() {
   const step = r.steps[cook.i], last = cook.i === r.steps.length - 1;
   el.innerHTML = `<div class="row between"><button class="iconbtn" onclick="endCook()">✕</button><b style="flex:1;text-align:center;padding:0 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.title)}</b><button class="iconbtn" onclick="cookIngr()">📋</button></div>
     <div class="prog"><i style="width:${(cook.i + 1) / r.steps.length * 100}%"></i></div>
-    <div class="stepno">Крок ${cook.i + 1} з ${r.steps.length}</div>
+    <div class="stepno">${stepGroupOf(r, cook.i) ? `${groupEmoji(stepGroupOf(r, cook.i))} ${esc(stepGroupOf(r, cook.i))} · ` : ''}Крок ${cook.i + 1} з ${r.steps.length}</div>
     <div class="txt">${esc(step)}
       <div class="timers" style="margin-top:18px">${stepTimes(step).map(t => `<button class="btn sec sm" onclick="addTimer(${t.sec},'${esc(t.label)}')">⏱ Таймер ${esc(t.label)}</button>`).join('')}</div></div>
     <div class="timers" id="tlist"></div>
@@ -1305,7 +1348,7 @@ function renderCook() {
 }
 function cookIngr() {
   const r = R(cook.id);
-  sheet(`<h3>Інгредієнти</h3><ul class="ing">${r.ingredients.map(i => `<li><span class="q">${esc(i.amount != null ? fmtNum(i.amount) + ' ' + i.unit : i.unit)}</span><span>${esc(i.name)}</span></li>`).join('')}</ul>`);
+  sheet(`<h3>Інгредієнти</h3><ul class="ing">${grouped(r.ingredients, i => i.group).map(b => (b.group ? `<li class="grp">${groupEmoji(b.group)} ${esc(b.group)}</li>` : '') + b.items.map(({ x: i }) => `<li><span class="q">${esc(i.amount != null ? fmtNum(i.amount) + ' ' + i.unit : i.unit)}</span><span>${esc(i.name)}</span></li>`).join('')).join('')}</ul>`);
   document.getElementById('ov').style.zIndex = 70;
 }
 function addTimer(sec, label) { cook.timers.push({ id: uid(), end: Date.now() + sec * 1000, label, rung: false }); tickTimers(); toast(`Таймер на ${label} запущено`); }
