@@ -917,10 +917,11 @@ function recipeComments(list) {
   return { picked, hasRecipe: picked.some(c => captionIsRecipe(c.text)), text: picked.map(c => `[${c.byAuthor ? 'Коментар АВТОРА' + (c.pinned ? ', закріплений' : '') : 'Коментар глядача, ❤ ' + c.likes}]\n${c.text}`).join('\n\n').slice(0, 5000) };
 }
 function captionIsRecipe(c) {
-  if (!c || c.length < 80) return false;
-  const lines = c.split(/\n|[•·]/).map(x => x.trim()).filter(Boolean);
-  const ing = lines.filter(l => new RegExp(NUM_RE + '\\s*' + UNIT_RE, 'i').test(l) || /^\d+\s*(г|мл|шт|ст|ч\.л)/i.test(l)).length;
-  return ing >= 3;
+  if (!c || c.length < 60) return false;
+  // рахуємо кількості з одиницями по всьому тексту (TikTok часто віддає опис одним рядком)
+  const qty = c.match(/\d+(?:[.,]\d+)?(?:\s*\/\s*\d+)?\s*(?:г|гр|кг|мл|л|шт|ст\.?\s?л|ч\.?\s?л|склян\S*|зубч\S*|пуч\S*|g|kg|ml|tbsp|tsp|cups?)(?=[\s.,;:)!]|$)/gi) || [];
+  const kw = /рецепт|інгредієнт|ингредиент|склад:|тісто|соус|начинк|ingredients|recipe/i.test(c);
+  return qty.length >= 4 || (kw && qty.length >= 3);
 }
 const aiStatus = t => { const e = document.getElementById('ai_status'); if (e) e.textContent = t; };
 function gemMime(f) {
