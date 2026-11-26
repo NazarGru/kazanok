@@ -1385,12 +1385,13 @@ async function toReminders() {
     <p>✅ Скопійовано ${lines.length} позицій.</p>
     <ol class="small" style="padding-left:18px;line-height:1.7"><li>Відкрийте <b>«Нагадування»</b> і створіть/відкрийте список «Покупки».</li><li>Торкніться порожнього рядка → <b>«Вставити»</b> — кожен продукт стане окремим пунктом.</li><li>Список зʼявиться на Apple Watch у «Нагадуваннях», там можна відмічати куплене.</li></ol>
     <button class="btn" onclick="location.href='x-apple-reminderkit://'">Відкрити «Нагадування»</button>
-    <p class="small muted" style="margin-top:12px">Хочете в один дотик, без вставляння? Налаштуйте команду в «Ще» → «⌚ Apple Watch».</p>`);
+    <p class="small muted" style="margin-top:12px">Хочете в один дотик, без вставляння? Налаштуйте команду в «Ще» → «⌚ Apple Watch» або дивіться <a href="watch.html" style="color:var(--accent)">📖 інструкцію з картинками</a>.</p>`);
 }
 function watchSheet() {
   const st = S.settings;
   sheet(`<h3>⌚ Apple Watch</h3>
     <p class="small muted" style="margin-top:0">Годинник не запускає сайти, тому Казанок передає дані у стандартні програми, які вже є на Watch. Для цього один раз створіть дві команди в програмі <b>«Команди»</b> на iPhone.</p>
+    <a class="btn" style="display:block;text-align:center;text-decoration:none;margin-bottom:10px" href="watch.html">📖 Інструкція з картинками</a>
     <div class="card"><h3>🛒 Покупки → «Нагадування»</h3>
       <ol class="small" style="padding-left:18px;line-height:1.7;margin:0">
         <li>«Команди» → <b>＋</b> → назва <b>${SC_SHOP}</b> (саме так).</li>
